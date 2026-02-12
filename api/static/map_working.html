@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>India Estuary Microplastic Viewer</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { margin:0; font-family: Arial, sans-serif; }
+header { padding:10px; background:#023; color:white; }
+#controls { padding:10px; background:#eef; }
+#map { height:55vh; }
+.chart-box { padding:20px; }
+canvas { min-height:420px; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>India Estuary Microplastic Viewer</h2>
+</header>
+
+<div id="controls">
+  <b>Select Estuary:</b>
+  <select id="estuarySelect">
+    <option value="">-- Choose --</option>
+    <option value="Palar">Palar</option>
+    <option value="Kollidam">Kollidam</option>
+    <option value="Pulicat">Pulicat</option>
+  </select>
+</div>
+
+<div id="map"></div>
+
+<!-- Abundance -->
+<div class="chart-box"><canvas id="waterAbundanceCanvas"></canvas></div>
+<div class="chart-box"><canvas id="sedimentAbundanceCanvas"></canvas></div>
+
+<!-- Shape -->
+<div class="chart-box"><canvas id="waterShapeCanvas"></canvas></div>
+<div class="chart-box"><canvas id="sedimentShapeCanvas"></canvas></div>
+
+<!-- Color -->
+<div class="chart-box"><canvas id="waterColorCanvas"></canvas></div>
+<div class="chart-box"><canvas id="sedimentColorCanvas"></canvas></div>
+
+<!-- Size -->
+<div class="chart-box"><canvas id="waterSizeCanvas"></canvas></div>
+<div class="chart-box"><canvas id="sedimentSizeCanvas"></canvas></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+function drawAbundanceCharts(points){
+
+  waterAbChart = new Chart(
+    document.getElementById("waterAbundanceCanvas"),
+    {
+      type:"bar",
+      data:{
+        labels: points.map(p=>p.station_code),
+        datasets:[{
+          label:"Water Abundance (count / m³)",
+          data: points.map(p=>p.water_abundance)
+        }]
+      },
+      options:{
+        plugins:{ title:{display:true,text:"Water Microplastic Abundance"} },
+        scales:{
+          x:{ title:{display:true,text:"Station"} },
+          y:{ title:{display:true,text:"Count / m³"} }
+        }
+      }
+    }
+  );
+
+  sedimentAbChart = new Chart(
+    document.getElementById("sedimentAbundanceCanvas"),
+    {
+      type:"bar",
+      data:{
+        labels: points.map(p=>p.station_code),
+        datasets:[{
+          label:"Sediment Abundance (count / 50 g)",
+          data: points.map(p=>p.sediment_abundance)
+        }]
+      },
+      options:{
+        plugins:{ title:{display:true,text:"Sediment Microplastic Abundance"} },
+        scales:{
+          x:{ title:{display:true,text:"Station"} },
+          y:{ title:{display:true,text:"Count / 50 g"} }
+        }
+      }
+    }
+  );
+}
+</script>
+
+
+<script>
+function drawShapeCharts(points){
+
+  waterShapeChart = new Chart(
+    document.getElementById("waterShapeCanvas"),
+    {
+      type:"bar",
+      data:{
+        labels: points.map(p=>p.station_code),
+        datasets: SHAPES.map(s=>({
+          label:s,
+          data: points.map(p=>p.water?.[s] ?? 0),
+          stack:"water"
+        }))
+      },
+      options:{
+        plugins:{ title:{display:true,text:"Water Shape Distribution (%)"} },
+        scales:{
+          x:{ stacked:true, title:{display:true,text:"Station"} },
+          y:{ stacked:true, title:{display:true,text:"Percentage (%)"} }
+        }
+      }
+    }
+  );
+
+  sedimentShapeChart = new Chart(
+    document.getElementById("sedimentShapeCanvas"),
+    {
+      type:"bar",
+      data:{
+        labels: points.map(p=>p.station_code),
+        datasets: SHAPES.map(s=>({
+          label:s,
+          data: points.map(p=>p.sediment?.[s] ?? 0),
+          stack:"sediment"
+        }))
+      },
+      options:{
+        plugins:{ title:{display:true,text:"Sediment Shape Distribution (%)"} },
+        scales:{
+          x:{ stacked:true, title:{display:true,text:"Station"} },
+          y:{ stacked:true, title:{display:true,text:"Percentage (%)"} }
+        }
+      }
+    }
+  );
+}
+</script>
+
+<script>
+function drawColorCharts(points){
+
+  waterColorChart = new Chart(
+    document.getElementById("waterColorCanvas"),
+    {
+      type:"bar",
+      data:{
+        labels: points.map(p=>p.station_code),
+        datasets: COLORS.map(c=>({
+          label:c,
+          data: points.map(p=>p.water?.[c] ?? 0),
+          stack:"water"
+        }))
+      },
+      options:{
+        plugins:{ title:{display:true,text:"Water Color Distribution (count / m³)"} },
+        scales:{
+          x:{ stacked:true, title:{display:true,text:"Station"} },
+          y:{ stacked:true, title:{display:true,text:"Count / m³"} }
+        }
+      }
+    }
+  );
+
+  sedimentColorChart = new Chart(
+    document.getElementById("sedimentColorCanvas"),
+    {
+      type:"bar",
+      data:{
+        labels: points.map(p=>p.station_code),
+        datasets: COLORS.map(c=>({
+          label:c,
+          data: points.map(p=>p.sediment?.[c] ?? 0),
+          stack:"sediment"
+        }))
+      },
+      options:{
+        plugins:{ title:{display:true,text:"Sediment Color Distribution (count / 50 g)"} },
+        scales:{
+          x:{ stacked:true, title:{display:true,text:"Station"} },
+          y:{ stacked:true, title:{display:true,text:"Count / 50 g"} }
+        }
+      }
+    }
+  );
+}
+</script>
+
+
+<script>
+const SHAPES = ["fiber","fragment","film","foam","pellet"];
+const COLORS = ["black","red","blue","yellow","grey","white","green","orange","brown","transparent"];
+const SIZES  = ["lt_1mm","mm_1_to_2_5","mm_2_5_to_5"];
+
+/* ================= MAP ================= */
+const map = L.map("map").setView([12.8, 80.2], 7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+const markers = L.layerGroup().addTo(map);
+
+/* ================= CHART OBJECTS ================= */
+let waterAbChart, sedimentAbChart;
+let waterShapeChart, sedimentShapeChart;
+let waterColorChart, sedimentColorChart;
+let waterSizeChart, sedimentSizeChart;
+
+/* ================= LOAD ================= */
+document.getElementById("estuarySelect").addEventListener("change", loadEstuary);
+
+async function loadEstuary() {
+  const estuary = this.value;
+  if (!estuary) return;
+
+  markers.clearLayers();
+  destroyCharts();
+
+  try {
+    const baseData  = await fetch(`http://127.0.0.1:8000/estuaries/${estuary}`).then(r=>r.json());
+    const shapeData = await fetch(`http://127.0.0.1:8000/estuaries/${estuary}/shape`).then(r=>r.json());
+    const colorData = await fetch(`http://127.0.0.1:8000/estuaries/${estuary}/color`).then(r=>r.json());
+    const sizeData  = await fetch(`http://127.0.0.1:8000/estuaries/${estuary}/size`).then(r=>r.json());
+
+    const shapeIdx = Object.fromEntries(shapeData.points.map(p=>[p.station_code,p]));
+    const colorIdx = Object.fromEntries(colorData.points.map(p=>[p.station_code,p]));
+    const sizeIdx  = Object.fromEntries(sizeData.points.map(p=>[p.station_code,p]));
+
+    const bounds = [];
+
+    baseData.points.forEach(pt => {
+      const s = shapeIdx[pt.station_code] || {};
+      const c = colorIdx[pt.station_code] || {};
+      const z = sizeIdx[pt.station_code]  || {};
+
+      markers.addLayer(
+        L.marker([pt.latitude, pt.longitude]).bindPopup(`
+          <b>Station:</b> ${pt.station_code}<br><br>
+
+          <b>Abundance</b><br>
+          Water: ${pt.water_abundance} / m³<br>
+          Sediment: ${pt.sediment_abundance} / 50 g<br><br>
+
+          <b>Water Shape (%)</b><br>
+          ${SHAPES.map(x=>`${x}: ${s.water?.[x]??0}`).join("<br>")}<br><br>
+
+          <b>Sediment Shape (%)</b><br>
+          ${SHAPES.map(x=>`${x}: ${s.sediment?.[x]??0}`).join("<br>")}<br><br>
+
+          <b>Water Color (count / m³)</b><br>
+          ${COLORS.map(x=>`${x}: ${c.water?.[x]??0}`).join("<br>")}<br><br>
+
+          <b>Sediment Color (count / 50 g)</b><br>
+          ${COLORS.map(x=>`${x}: ${c.sediment?.[x]??0}`).join("<br>")}<br><br>
+
+          <b>Water Size (count / m³)</b><br>
+          ${SIZES.map(x=>`${x}: ${z.water?.[x]??0}`).join("<br>")}<br><br>
+
+          <b>Sediment Size (count / 50 g)</b><br>
+          ${SIZES.map(x=>`${x}: ${z.sediment?.[x]??0}`).join("<br>")}
+        `)
+      );
+
+      bounds.push([pt.latitude, pt.longitude]);
+    });
+
+    map.fitBounds(bounds);
+    drawAbundanceCharts(baseData.points);
+    drawShapeCharts(shapeData.points);
+    drawColorCharts(colorData.points);
+    drawSizeCharts(sizeData.points);
+
+
+  } catch (e) {
+    console.error(e);
+    alert("API error — check console");
+  }
+}
+
+/* ================= SIZE CHARTS ================= */
+function drawSizeCharts(points){
+
+  waterSizeChart = new Chart(document.getElementById("waterSizeCanvas"),{
+    type:"bar",
+    data:{
+      labels:points.map(p=>p.station_code),
+      datasets:SIZES.map(s=>({
+        label:s,
+        data:points.map(p=>p.water?.[s]??0),
+        stack:"w"
+      }))
+    },
+    options:{
+      plugins:{ title:{display:true,text:"Water Size Distribution (count / m³)"}},
+      scales:{
+        x:{stacked:true,title:{display:true,text:"Station"}},
+        y:{stacked:true,title:{display:true,text:"Count / m³"}}
+      }
+    }
+  });
+
+  sedimentSizeChart = new Chart(document.getElementById("sedimentSizeCanvas"),{
+    type:"bar",
+    data:{
+      labels:points.map(p=>p.station_code),
+      datasets:SIZES.map(s=>({
+        label:s,
+        data:points.map(p=>p.sediment?.[s]??0),
+        stack:"s"
+      }))
+    },
+    options:{
+      plugins:{ title:{display:true,text:"Sediment Size Distribution (count / 50 g)"}},
+      scales:{
+        x:{stacked:true,title:{display:true,text:"Station"}},
+        y:{stacked:true,title:{display:true,text:"Count / 50 g"}}
+      }
+    }
+  });
+}
+
+/* ================= CLEANUP ================= */
+function destroyCharts(){
+  [waterAbChart,sedimentAbChart,
+   waterShapeChart,sedimentShapeChart,
+   waterColorChart,sedimentColorChart,
+   waterSizeChart,sedimentSizeChart]
+   .forEach(c=>c && c.destroy());
+}
+</script>
+
+</body>
+</html>
