@@ -229,10 +229,11 @@ async function loadEstuary() {
   destroyCharts();
 
   try {
-    const baseData  = await fetch(`${API_BASE}/estuaries/${estuary}`).then(r=>r.json());
-    const shapeData = await fetch(`${API_BASE}/estuaries/${estuary}/shape`).then(r=>r.json());
-    const colorData = await fetch(`${API_BASE}/estuaries/${estuary}/color`).then(r=>r.json());
-    const sizeData  = await fetch(`${API_BASE}/estuaries/${estuary}/size`).then(r=>r.json());
+    const baseData  = await fetch(`/estuaries/${estuary}`).then(r=>r.json());
+    const shapeData = await fetch(`/estuaries/${estuary}/shape`).then(r=>r.json());
+    const colorData = await fetch(`/estuaries/${estuary}/color`).then(r=>r.json());
+    const sizeData  = await fetch(`/estuaries/${estuary}/size`).then(r=>r.json());
+
 
 
     const shapeIdx = Object.fromEntries(shapeData.points.map(p=>[p.station_code,p]));
