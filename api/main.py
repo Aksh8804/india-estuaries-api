@@ -129,7 +129,8 @@ app.mount(
 
 @app.get("/")
 def root():
-    return FileResponse("static/map.html")
+    return FileResponse(Path(__file__).parent / "static" / "map.html")
+
 
 
 # =========================
