@@ -129,8 +129,9 @@ app.mount(
 
 @app.get("/")
 def root():
-    return FileResponse(Path(__file__).parent / "static" / "map.html")
-
+    file_path = Path(__file__).parent / "static" / "map.html"
+    print("Looking for file at:", file_path)
+    return FileResponse(file_path)
 
 
 # =========================
