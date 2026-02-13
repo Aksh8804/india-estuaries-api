@@ -1,0 +1,5 @@
+python -m uvicorn api.main:app --reload
+http://127.0.0.1:8000/survey-points
+http://127.0.0.1:8000/docs
+python -m http.server 5500
+https://india-estuaries-api.onrender.com/

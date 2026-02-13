@@ -14,6 +14,16 @@ from .schemas import SurveyPointBase
 
 
 app = FastAPI(title="Microplastics API")
+# =========================
+# CORS
+# =========================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # =========================
 # DB Session Dependency
@@ -107,16 +117,6 @@ def get_estuary_data(estuary_name: str, db: Session = Depends(get_db)):
     }
 
 
-# =========================
-# CORS
-# =========================
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # =========================
 # STATIC FILES
