@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -14,16 +14,23 @@ from .schemas import SurveyPointBase
 
 
 app = FastAPI(title="Microplastics API")
+
+
 # =========================
-# CORS
+# CORS (IMPORTANT: EDIT THIS)
 # =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:8000",
+        "http://localhost:5000",
+        "https://india-estuaries-api.onrender.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # =========================
 # DB Session Dependency
@@ -34,6 +41,28 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# =========================
+# HEALTH CHECK
+# =========================
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# =========================
+# LIST ALL ESTUARIES
+# =========================
+@app.get("/estuaries")
+def list_estuaries(db: Session = Depends(get_db)):
+    sql = text("""
+        SELECT DISTINCT estuary_name
+        FROM survey.survey_points
+        ORDER BY estuary_name;
+    """)
+    rows = db.execute(sql).fetchall()
+    return [r[0] for r in rows]
 
 
 # =========================
@@ -91,7 +120,7 @@ def get_estuary_data(estuary_name: str, db: Session = Depends(get_db)):
     rows = db.execute(sql, {"estuary_name": estuary_name}).fetchall()
 
     if not rows:
-        return {"error": "No points found"}
+        raise HTTPException(status_code=404, detail="No points found")
 
     water_values = [r.water_abundance for r in rows if r.water_abundance is not None]
     sediment_values = [r.sediment_abundance for r in rows if r.sediment_abundance is not None]
@@ -115,23 +144,6 @@ def get_estuary_data(estuary_name: str, db: Session = Depends(get_db)):
             for r in rows
         ],
     }
-
-
-
-# =========================
-# STATIC FILES
-# =========================
-app.mount(
-    "/static",
-    StaticFiles(directory=Path(__file__).parent / "static"),
-    name="static",
-)
-
-@app.get("/")
-def root():
-    file_path = Path(__file__).parent / "static" / "map.html"
-    print("Looking for file at:", file_path)
-    return FileResponse(file_path)
 
 
 # =========================
@@ -176,24 +188,24 @@ def get_estuary_shape(estuary: str, db: Session = Depends(get_db)):
             "latitude": r["latitude"],
             "longitude": r["longitude"],
             "water": {
-                "fiber": r["water_fiber"],
-                "fragment": r["water_fragment"],
-                "film": r["water_film"],
-                "foam": r["water_foam"],
-                "pellet": r["water_pellet"],
+                "fiber": r["water_fiber"] or 0,
+                "fragment": r["water_fragment"] or 0,
+                "film": r["water_film"] or 0,
+                "foam": r["water_foam"] or 0,
+                "pellet": r["water_pellet"] or 0,
             },
             "sediment": {
-                "fiber": r["sediment_fiber"],
-                "fragment": r["sediment_fragment"],
-                "film": r["sediment_film"],
-                "foam": r["sediment_foam"],
-                "pellet": r["sediment_pellet"],
+                "fiber": r["sediment_fiber"] or 0,
+                "fragment": r["sediment_fragment"] or 0,
+                "film": r["sediment_film"] or 0,
+                "foam": r["sediment_foam"] or 0,
+                "pellet": r["sediment_pellet"] or 0,
             },
         })
 
         for k in water_sum:
-            water_sum[k] += r[f"water_{k}"]
-            sediment_sum[k] += r[f"sediment_{k}"]
+            water_sum[k] += r[f"water_{k}"] or 0
+            sediment_sum[k] += r[f"sediment_{k}"] or 0
 
     n = len(rows)
     average = {
@@ -255,28 +267,28 @@ def get_estuary_color(estuary: str, db: Session = Depends(get_db)):
             "latitude": r["latitude"],
             "longitude": r["longitude"],
             "water": {
-                "black": r["w_black"],
-                "red": r["w_red"],
-                "blue": r["w_blue"],
-                "yellow": r["w_yellow"],
-                "grey": r["w_grey"],
-                "white": r["w_white"],
-                "green": r["w_green"],
-                "orange": r["w_orange"],
-                "brown": r["w_brown"],
-                "transparent": r["w_transparent"],
+                "black": r["w_black"] or 0,
+                "red": r["w_red"] or 0,
+                "blue": r["w_blue"] or 0,
+                "yellow": r["w_yellow"] or 0,
+                "grey": r["w_grey"] or 0,
+                "white": r["w_white"] or 0,
+                "green": r["w_green"] or 0,
+                "orange": r["w_orange"] or 0,
+                "brown": r["w_brown"] or 0,
+                "transparent": r["w_transparent"] or 0,
             },
             "sediment": {
-                "black": r["s_black"],
-                "red": r["s_red"],
-                "blue": r["s_blue"],
-                "yellow": r["s_yellow"],
-                "grey": r["s_grey"],
-                "white": r["s_white"],
-                "green": r["s_green"],
-                "orange": r["s_orange"],
-                "brown": r["s_brown"],
-                "transparent": r["s_transparent"],
+                "black": r["s_black"] or 0,
+                "red": r["s_red"] or 0,
+                "blue": r["s_blue"] or 0,
+                "yellow": r["s_yellow"] or 0,
+                "grey": r["s_grey"] or 0,
+                "white": r["s_white"] or 0,
+                "green": r["s_green"] or 0,
+                "orange": r["s_orange"] or 0,
+                "brown": r["s_brown"] or 0,
+                "transparent": r["s_transparent"] or 0,
             },
         })
 
@@ -328,3 +340,18 @@ def get_size_distribution(estuary: str, db: Session = Depends(get_db)):
         })
 
     return {"estuary": estuary, "points": points}
+
+
+# =========================
+# STATIC FILES
+# =========================
+app.mount(
+    "/static",
+    StaticFiles(directory=Path(__file__).parent / "static"),
+    name="static",
+)
+
+@app.get("/")
+def root():
+    file_path = Path(__file__).parent / "static" / "map.html"
+    return FileResponse(file_path)
