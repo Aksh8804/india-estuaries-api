@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>India Estuary Microplastic Viewer</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { margin:0; font-family: Arial, sans-serif; }
+header { padding:10px; background:#023; color:white; }
+
+#controls {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 10px 20px;
+  background: #eef;
+  box-sizing: border-box;
+  gap: 20px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+}
+
+#map {
+  width: 100%;
+  height: 80vh;
+}
+
+.pie-small {
+  width: 320px !important;
+  height: 320px !important;
+  display:block;
+  margin:15px auto;
+}
+
+.chart-box {
+  display:none;
+  padding:20px;
+}
+
+/* DARK MODE */
+body.dark-mode { background:#121212; color:#e0e0e0; }
+body.dark-mode header { background:#000; }
+body.dark-mode #controls { background:#1e1e1e; color:#e0e0e0; }
+body.dark-mode .chart-box { background:#181818; }
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>India Estuary Microplastic Viewer</h2>
+</header>
+
+<div id="controls">
+
+  <div class="control-group">
+    <label><b>Select Estuary:</b></label>
+    <select id="estuarySelect">
+      <option value="">-- Choose --</option>
+      <option value="Palar">Palar</option>
+      <option value="Kollidam">Kollidam</option>
+      <option value="Pulicat">Pulicat</option>
+    </select>
+  </div>
+
+  <div class="control-group">
+    <label><b>Select Layer:</b></label>
+    <select id="layerSelect">
+      <option value="">-- Choose --</option>
+      <option value="abundance">Abundance</option>
+      <option value="shape">Shape</option>
+      <option value="color">Color</option>
+      <option value="size">Size</option>
+    </select>
+  </div>
+
+  <div class="control-group">
+    <label><b>Select Medium:</b></label>
+    <select id="mediumSelect">
+      <option value="">-- Choose --</option>
+      <option value="water">Water</option>
+      <option value="sediment">Sediment</option>
+    </select>
+  </div>
+
+  <div class="control-group">
+    <label><b>Theme:</b></label>
+    <label><input type="checkbox" id="themeToggle"> Dark Mode</label>
+  </div>
+
+</div>
+
+<div id="map"></div>
+
+<!-- Chart Sections -->
+<div class="chart-box" id="abundanceCharts">
+  <canvas id="waterAbundanceCanvas"></canvas>
+  <canvas id="sedimentAbundanceCanvas"></canvas>
+  <hr>
+  <canvas id="waterAbundancePieCanvas" class="pie-small"></canvas>
+  <canvas id="sedimentAbundancePieCanvas" class="pie-small"></canvas>
+</div>
+
+<div class="chart-box" id="shapeCharts">
+  <canvas id="waterShapeCanvas"></canvas>
+  <canvas id="sedimentShapeCanvas"></canvas>
+  <hr>
+  <canvas id="waterShapePieCanvas" class="pie-small"></canvas>
+  <canvas id="sedimentShapePieCanvas" class="pie-small"></canvas>
+</div>
+
+<div class="chart-box" id="colorCharts">
+  <canvas id="waterColorCanvas"></canvas>
+  <canvas id="sedimentColorCanvas"></canvas>
+  <hr>
+  <canvas id="waterColorPieCanvas" class="pie-small"></canvas>
+  <canvas id="sedimentColorPieCanvas" class="pie-small"></canvas>
+</div>
+
+<div class="chart-box" id="sizeCharts">
+  <canvas id="waterSizeCanvas"></canvas>
+  <canvas id="sedimentSizeCanvas"></canvas>
+  <hr>
+  <canvas id="waterSizePieCanvas" class="pie-small"></canvas>
+  <canvas id="sedimentSizePieCanvas" class="pie-small"></canvas>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ================= CONSTANTS =================
+const SHAPES = ["fiber","fragment","film","foam","pellet"];
+const COLORS = ["black","red","blue","yellow","grey","white","green","orange","brown","transparent"];
+const SIZES  = ["lt_1mm","mm_1_to_2_5","mm_2_5_to_5"];
+const API_BASE = "http://127.0.0.1:8000";
+
+// ================= MAP =================
+const map = L.map("map").setView([12.8, 80.2], 7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+const markers = L.layerGroup().addTo(map);
+
+// ================= CHART STORAGE =================
+let allCharts = [];
+
+// ================= LOAD ESTUARY =================
+document.getElementById("estuarySelect").addEventListener("change", loadEstuary);
+
+async function loadEstuary(){
+  const estuary = this.value;
+  if(!estuary) return;
+
+  markers.clearLayers();
+  destroyCharts();
+
+  try{
+    const baseData = await fetch(`${API_BASE}/estuaries/${estuary}/abundance`).then(r=>r.json());
+    const shapeData = await fetch(`${API_BASE}/estuaries/${estuary}/shape`).then(r=>r.json());
+    const colorData = await fetch(`${API_BASE}/estuaries/${estuary}/color`).then(r=>r.json());
+    const sizeData  = await fetch(`${API_BASE}/estuaries/${estuary}/size`).then(r=>r.json());
+
+    if(!baseData.points?.length){
+      alert("No data found.");
+      return;
+    }
+
+    const bounds = [];
+
+    baseData.points.forEach(pt=>{
+      markers.addLayer(
+        L.marker([pt.latitude, pt.longitude])
+         .bindPopup(`<b>${pt.station_code}</b><br>
+                     Water: ${pt.water_abundance}<br>
+                     Sediment: ${pt.sediment_abundance}`)
+      );
+      bounds.push([pt.latitude, pt.longitude]);
+    });
+
+    if(bounds.length) map.fitBounds(bounds);
+
+    drawAbundanceCharts(baseData.points);
+    drawShapeCharts(shapeData.points);
+    drawColorCharts(colorData.points);
+    drawSizeCharts(sizeData.points);
+
+    drawAbundancePie(baseData.points);
+    drawShapePie(shapeData.points);
+    drawColorPie(colorData.points);
+    drawSizePie(sizeData.points);
+
+    showLayer();
+
+  }catch(e){
+    console.error(e);
+    alert("API error — check console");
+  }
+}
+
+// ================= DESTROY =================
+function destroyCharts(){
+  allCharts.forEach(c=>c.destroy());
+  allCharts = [];
+}
+
+// ================= ABUNDANCE BAR =================
+function drawAbundanceCharts(points){
+  allCharts.push(new Chart(
+    document.getElementById("waterAbundanceCanvas"),
+    { type:"bar",
+      data:{ labels:points.map(p=>p.station_code),
+        datasets:[{label:"Water Abundance", data:points.map(p=>p.water_abundance)}]}
+    }
+  ));
+
+  allCharts.push(new Chart(
+    document.getElementById("sedimentAbundanceCanvas"),
+    { type:"bar",
+      data:{ labels:points.map(p=>p.station_code),
+        datasets:[{label:"Sediment Abundance", data:points.map(p=>p.sediment_abundance)}]}
+    }
+  ));
+}
+
+// ================= SHAPE BAR =================
+function drawShapeCharts(points){
+  allCharts.push(new Chart(
+    document.getElementById("waterShapeCanvas"),
+    { type:"bar",
+      data:{
+        labels:points.map(p=>p.station_code),
+        datasets:SHAPES.map(s=>({
+          label:s,
+          data:points.map(p=>p.water?.[s]??0),
+          stack:"w"
+        }))
+      },
+      options:{scales:{x:{stacked:true},y:{stacked:true}}}
+    }
+  ));
+
+  allCharts.push(new Chart(
+    document.getElementById("sedimentShapeCanvas"),
+    { type:"bar",
+      data:{
+        labels:points.map(p=>p.station_code),
+        datasets:SHAPES.map(s=>({
+          label:s,
+          data:points.map(p=>p.sediment?.[s]??0),
+          stack:"s"
+        }))
+      },
+      options:{scales:{x:{stacked:true},y:{stacked:true}}}
+    }
+  ));
+}
+
+// ================= COLOR BAR =================
+function drawColorCharts(points){
+  allCharts.push(new Chart(
+    document.getElementById("waterColorCanvas"),
+    { type:"bar",
+      data:{
+        labels:points.map(p=>p.station_code),
+        datasets:COLORS.map(c=>({
+          label:c,
+          data:points.map(p=>p.water?.[c]??0),
+          stack:"w"
+        }))
+      },
+      options:{scales:{x:{stacked:true},y:{stacked:true}}}
+    }
+  ));
+
+  allCharts.push(new Chart(
+    document.getElementById("sedimentColorCanvas"),
+    { type:"bar",
+      data:{
+        labels:points.map(p=>p.station_code),
+        datasets:COLORS.map(c=>({
+          label:c,
+          data:points.map(p=>p.sediment?.[c]??0),
+          stack:"s"
+        }))
+      },
+      options:{scales:{x:{stacked:true},y:{stacked:true}}}
+    }
+  ));
+}
+
+// ================= SIZE BAR =================
+function drawSizeCharts(points){
+  allCharts.push(new Chart(
+    document.getElementById("waterSizeCanvas"),
+    { type:"bar",
+      data:{
+        labels:points.map(p=>p.station_code),
+        datasets:SIZES.map(s=>({
+          label:s,
+          data:points.map(p=>p.water?.[s]??0),
+          stack:"w"
+        }))
+      },
+      options:{scales:{x:{stacked:true},y:{stacked:true}}}
+    }
+  ));
+
+  allCharts.push(new Chart(
+    document.getElementById("sedimentSizeCanvas"),
+    { type:"bar",
+      data:{
+        labels:points.map(p=>p.station_code),
+        datasets:SIZES.map(s=>({
+          label:s,
+          data:points.map(p=>p.sediment?.[s]??0),
+          stack:"s"
+        }))
+      },
+      options:{scales:{x:{stacked:true},y:{stacked:true}}}
+    }
+  ));
+}
+
+// ================= PIE HELPERS =================
+function createPie(id, labels, data){
+  allCharts.push(new Chart(
+    document.getElementById(id),
+    { type:"pie",
+      data:{ labels, datasets:[{data}] },
+      options:{ responsive:false, plugins:{ legend:{ position:"bottom" } } }
+    }
+  ));
+}
+
+function drawAbundancePie(points){
+  createPie("waterAbundancePieCanvas",
+    points.map(p=>p.station_code),
+    points.map(p=>p.water_abundance));
+
+  createPie("sedimentAbundancePieCanvas",
+    points.map(p=>p.station_code),
+    points.map(p=>p.sediment_abundance));
+}
+
+function drawShapePie(points){
+  const w={}, s={};
+  SHAPES.forEach(x=>{w[x]=0;s[x]=0});
+  points.forEach(p=>SHAPES.forEach(x=>{
+    w[x]+=p.water?.[x]||0;
+    s[x]+=p.sediment?.[x]||0;
+  }));
+  createPie("waterShapePieCanvas",SHAPES,Object.values(w));
+  createPie("sedimentShapePieCanvas",SHAPES,Object.values(s));
+}
+
+function drawColorPie(points){
+  const w={}, s={};
+  COLORS.forEach(x=>{w[x]=0;s[x]=0});
+  points.forEach(p=>COLORS.forEach(x=>{
+    w[x]+=p.water?.[x]||0;
+    s[x]+=p.sediment?.[x]||0;
+  }));
+  createPie("waterColorPieCanvas",COLORS,Object.values(w));
+  createPie("sedimentColorPieCanvas",COLORS,Object.values(s));
+}
+
+function drawSizePie(points){
+  const w={}, s={};
+  SIZES.forEach(x=>{w[x]=0;s[x]=0});
+  points.forEach(p=>SIZES.forEach(x=>{
+    w[x]+=p.water?.[x]||0;
+    s[x]+=p.sediment?.[x]||0;
+  }));
+  createPie("waterSizePieCanvas",SIZES,Object.values(w));
+  createPie("sedimentSizePieCanvas",SIZES,Object.values(s));
+}
+
+// ================= LAYER CONTROL =================
+document.getElementById("mediumSelect").addEventListener("change", showLayer);
+document.getElementById("layerSelect").addEventListener("change", showLayer);
+document.getElementById("themeToggle")
+  .addEventListener("change",()=>document.body.classList.toggle("dark-mode"));
+
+function showLayer(){
+  const layer = document.getElementById("layerSelect").value;
+  const medium = document.getElementById("mediumSelect").value;
+
+  document.querySelectorAll(".chart-box").forEach(c=>c.style.display="none");
+  if(!layer || !medium) return;
+
+  const box = document.getElementById(layer+"Charts");
+  box.style.display="block";
+
+  box.querySelectorAll("canvas").forEach(c=>c.style.display="none");
+
+  if(medium==="water")
+    box.querySelectorAll("[id^='water']").forEach(c=>c.style.display="block");
+
+  if(medium==="sediment")
+    box.querySelectorAll("[id^='sediment']").forEach(c=>c.style.display="block");
+}
+</script>
+
+</body>
+</html>

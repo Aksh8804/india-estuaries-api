@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>India Estuary Microplastic Viewer</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+body { margin:0; font-family: Arial; }
+header { padding:10px; background:#023; color:white; display:flex; justify-content:space-between; }
+
+#controls {
+  display:flex;
+  flex-wrap:wrap;
+  padding:10px 20px;
+  background:#eef;
+  gap:20px;
+}
+
+.control-group { display:flex; flex-direction:column; }
+
+#map { height:70vh; }
+
+.chart-box { display:none; padding:20px; }
+
+button.logout {
+  background:#c0392b;
+  border:none;
+  color:white;
+  padding:6px 12px;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>India Estuary Microplastic Viewer</h2>
+  <button id="logoutBtn" class="logout" onclick="logout()" style="display:none;">
+    Logout
+  </button>
+</header>
+
+<div id="controls">
+
+  <div class="control-group">
+    <label>Select Estuary:</label>
+    <select id="estuarySelect">
+      <option value="">-- Choose --</option>
+      <option value="Palar">Palar</option>
+      <option value="Kollidam">Kollidam</option>
+      <option value="Pulicat">Pulicat</option>
+    </select>
+  </div>
+
+  <div class="control-group">
+    <label>Select Layer:</label>
+    <select id="layerSelect">
+      <option value="">-- Choose --</option>
+      <option value="abundance">Abundance</option>
+      <option value="shape">Shape</option>
+      <option value="color">Color</option>
+      <option value="size">Size</option>
+    </select>
+  </div>
+
+  <div class="control-group">
+    <label>Select Medium:</label>
+    <select id="mediumSelect">
+      <option value="">-- Choose --</option>
+      <option value="water">Water</option>
+      <option value="sediment">Sediment</option>
+    </select>
+  </div>
+
+</div>
+
+<div id="map"></div>
+
+<div class="chart-box" id="abundanceCharts">
+  <canvas id="waterAbundanceCanvas"></canvas>
+  <canvas id="sedimentAbundanceCanvas"></canvas>
+</div>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000";
+
+/* =========================
+   AUTH SYSTEM
+========================= */
+
+// Run immediately before anything else
+function initAuth() {
+  const token = localStorage.getItem("access_token");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  if (!token) {
+    window.location.href = "/static/login.html";
+    return;
+  }
+
+  logoutBtn.style.display = "inline-block";
+}
+
+async function logout() {
+  const token = localStorage.getItem("access_token");
+
+  if (token) {
+    try {
+      await fetch(`${API_BASE}/logout`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  }
+
+  localStorage.removeItem("access_token");
+  window.location.href = "/static/login.html";
+}
+
+async function authFetch(url) {
+  const token = localStorage.getItem("access_token");
+
+  if (!token) {
+    logout();
+    return;
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  });
+
+  if (response.status === 401) {
+    logout();
+    return;
+  }
+
+  return response;
+}
+
+initAuth();
+
+/* =========================
+   MAP SETUP
+========================= */
+
+const map = L.map("map").setView([12.8, 80.2], 7);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
+  .addTo(map);
+
+const markers = L.layerGroup().addTo(map);
+
+let charts = [];
+
+/* =========================
+   LOAD ESTUARY
+========================= */
+
+document
+  .getElementById("estuarySelect")
+  .addEventListener("change", loadEstuary);
+
+async function loadEstuary() {
+  const estuary = this.value;
+  if (!estuary) return;
+
+  markers.clearLayers();
+  destroyCharts();
+
+  try {
+    const response = await authFetch(
+      `${API_BASE}/estuaries/${estuary}/abundance`
+    );
+
+    if (!response) return;
+
+    const baseData = await response.json();
+
+    if (!baseData.points || baseData.points.length === 0) {
+      alert("No data found");
+      return;
+    }
+
+    baseData.points.forEach(pt => {
+      markers.addLayer(
+        L.marker([pt.latitude, pt.longitude])
+          .bindPopup(
+            `<b>${pt.station_code}</b><br>
+             Water: ${pt.water_abundance}<br>
+             Sediment: ${pt.sediment_abundance}`
+          )
+      );
+    });
+
+    drawAbundance(baseData.points);
+    showLayer();
+
+  } catch (err) {
+    console.error("Error loading estuary:", err);
+    alert("Error loading data");
+  }
+}
+
+/* =========================
+   CHARTS
+========================= */
+
+function destroyCharts() {
+  charts.forEach(c => c.destroy());
+  charts = [];
+}
+
+function drawAbundance(points) {
+  charts.push(
+    new Chart(document.getElementById("waterAbundanceCanvas"), {
+      type: "bar",
+      data: {
+        labels: points.map(p => p.station_code),
+        datasets: [{
+          label: "Water Abundance",
+          data: points.map(p => p.water_abundance)
+        }]
+      }
+    })
+  );
+
+  charts.push(
+    new Chart(document.getElementById("sedimentAbundanceCanvas"), {
+      type: "bar",
+      data: {
+        labels: points.map(p => p.station_code),
+        datasets: [{
+          label: "Sediment Abundance",
+          data: points.map(p => p.sediment_abundance)
+        }]
+      }
+    })
+  );
+}
+
+/* =========================
+   LAYER DISPLAY
+========================= */
+
+document
+  .getElementById("mediumSelect")
+  .addEventListener("change", showLayer);
+
+document
+  .getElementById("layerSelect")
+  .addEventListener("change", showLayer);
+
+function showLayer() {
+  const layer = document.getElementById("layerSelect").value;
+  const medium = document.getElementById("mediumSelect").value;
+
+  document
+    .querySelectorAll(".chart-box")
+    .forEach(c => c.style.display = "none");
+
+  if (!layer || !medium) return;
+
+  const chartContainer = document.getElementById(layer + "Charts");
+  if (chartContainer) {
+    chartContainer.style.display = "block";
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Resend Verification</title>
+</head>
+<body>
+
+<h2>Resend Verification Email</h2>
+
+<input type="email" id="email" placeholder="Enter your email"><br><br>
+<button onclick="resend()">Resend</button>
+
+<p id="message"></p>
+
+<script>
+async function resend(){
+  const email = document.getElementById("email").value;
+
+  const response = await fetch("http://127.0.0.1:8000/resend-verification-email",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({email})
+  });
+
+  const data = await response.json();
+  document.getElementById("message").innerText = data.message || data.detail;
+}
+</script>
+
+</body>
+</html>
