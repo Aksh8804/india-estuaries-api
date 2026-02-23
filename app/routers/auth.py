@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, constr
 from datetime import datetime, timedelta
@@ -30,10 +31,18 @@ from app.email_service import send_email
 
 router = APIRouter(tags=["Auth"])
 
+# ==============================================
+# CONFIG
+# ==============================================
 
-# =========================================================
+BASE_URL = os.getenv(
+    "BASE_URL",
+    "https://india-estuaries-api.onrender.com"  # fallback
+)
+
+# ==============================================
 # SCHEMAS
-# =========================================================
+# ==============================================
 
 class UserCreate(BaseModel):
     username: str
@@ -55,9 +64,9 @@ class PromoteUserRequest(BaseModel):
     new_role: str
 
 
-# =========================================================
+# ==============================================
 # REGISTER
-# =========================================================
+# ==============================================
 
 @router.post("/register")
 def register(
@@ -83,6 +92,12 @@ def register(
     db.commit()
     db.refresh(new_user)
 
+    # Delete old verification tokens (important fix)
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == new_user.id
+    ).delete()
+    db.commit()
+
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(hours=24)
 
@@ -95,7 +110,7 @@ def register(
     db.add(verification_token)
     db.commit()
 
-    verification_link = f"http://localhost:8000/verify-email?token={token}"
+    verification_link = f"{BASE_URL}/verify-email?token={token}"
 
     html_content = f"""
     <h2>Email Verification</h2>
@@ -110,14 +125,12 @@ def register(
         html_content
     )
 
-    return {
-        "message": "User registered successfully. Please verify your email."
-    }
+    return {"message": "User registered successfully. Please verify your email."}
 
 
-# =========================================================
+# ==============================================
 # VERIFY EMAIL
-# =========================================================
+# ==============================================
 
 @router.get("/verify-email")
 def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
@@ -125,8 +138,11 @@ def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
         EmailVerificationToken.token == token
     ).first()
 
-    if not token_entry or token_entry.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Invalid or expired token")
+    if not token_entry:
+        raise HTTPException(status_code=400, detail="Invalid token")
+
+    if token_entry.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Token expired")
 
     user = db.query(User).filter(
         User.id == token_entry.user_id
@@ -136,20 +152,19 @@ def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_verified = True
+
     db.delete(token_entry)
     db.commit()
 
-    from fastapi.responses import RedirectResponse
-
     return RedirectResponse(
-        url="http://127.0.0.1:8000/static/verified.html",
+        url=f"{BASE_URL}/static/verified.html",
         status_code=302
-)
+    )
 
 
-# =========================================================
+# ==============================================
 # RESEND VERIFICATION
-# =========================================================
+# ==============================================
 
 @router.post("/resend-verification-email")
 def resend_verification_email(
@@ -165,6 +180,12 @@ def resend_verification_email(
     if user.is_verified:
         raise HTTPException(status_code=400, detail="Email already verified")
 
+    # Delete old tokens (important fix)
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == user.id
+    ).delete()
+    db.commit()
+
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(hours=24)
 
@@ -177,7 +198,7 @@ def resend_verification_email(
     db.add(verification_token)
     db.commit()
 
-    verification_link = f"http://localhost:8000/verify-email?token={token}"
+    verification_link = f"{BASE_URL}/verify-email?token={token}"
 
     html_content = f"""
     <h2>Email Verification</h2>
@@ -195,9 +216,9 @@ def resend_verification_email(
     return {"message": "Verification email resent successfully."}
 
 
-# =========================================================
+# ==============================================
 # LOGIN
-# =========================================================
+# ==============================================
 
 @router.post("/login")
 def login(
@@ -225,9 +246,9 @@ def login(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# =========================================================
+# ==============================================
 # LOGOUT
-# =========================================================
+# ==============================================
 
 @router.post("/logout")
 def logout(
@@ -253,105 +274,4 @@ def logout(
         return {"message": "Successfully logged out"}
 
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-# =========================================================
-# FORGOT PASSWORD
-# =========================================================
-
-@router.post("/forgot-password")
-def forgot_password(
-    username: str,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    user = db.query(User).filter(User.username == username).first()
-
-    if not user:
-        return {"message": "If the username exists, a reset link has been sent."}
-
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(hours=1)
-
-    reset_token = PasswordResetToken(
-        user_id=user.id,
-        token=token,
-        expires_at=expires_at
-    )
-
-    db.add(reset_token)
-    db.commit()
-
-    reset_link = f"http://127.0.0.1:8000/static/reset-password.html?token={token}"
-
-    html_content = f"""
-    <h2>Password Reset</h2>
-    <p>Click below to reset your password:</p>
-    <a href="{reset_link}">{reset_link}</a>
-    """
-
-    background_tasks.add_task(
-        send_email,
-        user.email,
-        "Reset Your Password",
-        html_content
-    )
-
-    return {"message": "If the username exists, a reset link has been sent."}
-
-
-# =========================================================
-# RESET PASSWORD
-# =========================================================
-
-@router.post("/reset-password")
-def reset_password(
-    data: ResetPasswordRequest,
-    db: Session = Depends(get_db)
-):
-    token_entry = db.query(PasswordResetToken).filter(
-        PasswordResetToken.token == data.token
-    ).first()
-
-    if not token_entry or token_entry.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Invalid or expired token")
-
-    user = db.query(User).filter(User.id == token_entry.user_id).first()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user.password = hash_password(data.new_password)
-    db.delete(token_entry)
-    db.commit()
-
-    return {"message": "Password reset successfully"}
-
-
-# =========================================================
-# PROMOTE USER (MASTER ADMIN ONLY)
-# =========================================================
-
-@router.post("/promote-user", tags=["Master Admin"])
-def promote_user(
-    data: PromoteUserRequest,
-    db: Session = Depends(get_db),
-    current_master: User = Depends(require_master_admin)
-):
-    user = db.query(User).filter(User.id == data.user_id).first()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if user.role == RoleEnum.master_admin:
-        raise HTTPException(status_code=400, detail="Cannot modify master admin")
-
-    try:
-        user.role = RoleEnum(data.new_role)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid role")
-
-    db.commit()
-
-    return {"message": f"User promoted to {user.role.value}"}
+        raise HTTPException(status_code=401, detail="Invalid token"}
