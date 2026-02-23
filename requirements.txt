@@ -26,3 +26,4 @@ typing_extensions==4.15.0
 uvicorn==0.40.0
 fastapi-cache2==0.2.2
 resend==2.22.0
+python-multipart==0.0.22
