@@ -146,4 +146,4 @@ app.mount(
 
 @app.get("/")
 def root():
-    return FileResponse(BASE_DIR / "static" / "map.html")
+    return FileResponse(BASE_DIR / "static" / "map_modified.html")
