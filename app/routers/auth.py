@@ -37,7 +37,7 @@ router = APIRouter(tags=["Auth"])
 
 BASE_URL = os.getenv(
     "BASE_URL",
-    "https://india-estuaries-api.onrender.com"  # fallback
+    "https://india-estuaries-api.onrender.com"
 )
 
 # ==============================================
@@ -92,7 +92,6 @@ def register(
     db.commit()
     db.refresh(new_user)
 
-    # Delete old verification tokens (important fix)
     db.query(EmailVerificationToken).filter(
         EmailVerificationToken.user_id == new_user.id
     ).delete()
@@ -152,7 +151,6 @@ def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_verified = True
-
     db.delete(token_entry)
     db.commit()
 
@@ -180,7 +178,6 @@ def resend_verification_email(
     if user.is_verified:
         raise HTTPException(status_code=400, detail="Email already verified")
 
-    # Delete old tokens (important fix)
     db.query(EmailVerificationToken).filter(
         EmailVerificationToken.user_id == user.id
     ).delete()
@@ -274,4 +271,4 @@ def logout(
         return {"message": "Successfully logged out"}
 
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token"}
+        raise HTTPException(status_code=401, detail="Invalid token")
