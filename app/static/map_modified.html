@@ -140,26 +140,26 @@ button.logout {
 
 <body>
 
-<header>
-  <h2>India Estuary Microplastic Viewer</h2>
-
-  <div style="display:flex; align-items:center; gap:20px;">
-
+<header style="flex-direction: column; align-items: flex-start; padding: 15px;">
+  <h2 style="margin: 0;">India Estuary Microplastic Viewer</h2>
+  
+  <!-- About Us link under title -->
+  <div style="margin-top: 8px;">
     <a href="about.html" 
-       style="color:white; text-decoration:none; font-weight:600;">
-       About
+       style="color:white; text-decoration:none; font-weight:600; font-size:16px;">
+       About Us
     </a>
+  </div>
 
-    <button id="themeToggle"
-      style="background:none; border:none; font-size:20px; cursor:pointer;">
+  <!-- Theme toggle and logout -->
+  <div style="display:flex; gap:20px; margin-top:8px;">
+    <button id="themeToggle" style="background:none; border:none; font-size:20px; cursor:pointer;">
       🌙
     </button>
 
-    <button id="logoutBtn" class="logout"
-      onclick="logout()" style="display:none;">
+    <button id="logoutBtn" class="logout" onclick="logout()" style="display:none;">
       Logout
     </button>
-
   </div>
 </header>
 
@@ -212,6 +212,23 @@ button.logout {
 
 
 <script>
+// ===== AUTH CHECK (run immediately) =====
+const token = localStorage.getItem("access_token");
+if(token){
+  document.getElementById("logoutBtn").style.display = "inline-block";
+}  
+
+
+if (!token) {
+  // Not logged in → redirect immediately
+   window.location.href = "login.html";
+}
+
+// ===== LOGOUT FUNCTION =====
+function logout() {
+  localStorage.removeItem("access_token");
+   window.location.href = "login.html";
+}
 
 Chart.defaults.font.family = "Arial";
 Chart.defaults.font.size = 13;
@@ -229,6 +246,8 @@ let currentPoints = [];
 
 let barChart = null;
 let pieChart = null;
+
+
 
 /* ================= MAP ================= */
 
@@ -263,18 +282,29 @@ if(pieChart) pieChart.destroy();
   try{
 
     const [abRes, shRes, colRes, szRes] = await Promise.all([
-      fetch(`${API_BASE}/estuaries/${currentEstuary}/abundance`),
-      fetch(`${API_BASE}/estuaries/${currentEstuary}/shape`),
-      fetch(`${API_BASE}/estuaries/${currentEstuary}/color`),
-      fetch(`${API_BASE}/estuaries/${currentEstuary}/size`)
-    ]);
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/abundance`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  }),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/shape`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  }),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/color`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  }),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/size`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  })
+]);
 
-    const abundance = await abRes.json();
-    const shape = await shRes.json();
-    const color = await colRes.json();
-    const size = await szRes.json();
+    const abundance = abRes.ok ? await abRes.json() : { points: [] };
+    const shape     = shRes.ok ? await shRes.json() : { points: [] };
+    const color     = colRes.ok ? await colRes.json() : { points: [] };
+    const size      = szRes.ok ? await szRes.json() : { points: [] };
 
-    if(!abundance.points) return;
+    if(!abundance.points || abundance.points.length === 0) {
+    alert("No data available for this estuary.");
+    return;
+    }
 
     COLOR_KEYS = color.points?.length
       ? Object.keys(color.points[0].water)
