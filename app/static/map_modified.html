@@ -22,9 +22,35 @@ header { padding:10px; background:#023; color:white; display:flex; justify-conte
 
 .control-group { display:flex; flex-direction:column; }
 
-#map { height:70vh; }
+#mainLayout {
+  display: flex;
+  height: 80vh;
+}
 
-.chart-box { display:none; padding:20px; }
+#map {
+  flex: 1;
+  height: 100%;
+}
+
+#maxPanel {
+  width: 320px;
+  background: #fff8e6;
+  padding: 15px;
+  border-left: 3px solid #e67e22;
+  overflow-y: auto;
+}
+
+#chartContainer {
+  padding: 20px;
+}
+
+#barCanvas,
+#pieCanvas {
+  max-width: 100%;
+  height: 400px !important;
+}
+
+canvas { max-width:900px; margin-bottom:30px; }
 
 button.logout {
   background:#c0392b;
@@ -46,7 +72,6 @@ button.logout {
 </header>
 
 <div id="controls">
-
   <div class="control-group">
     <label>Select Estuary:</label>
     <select id="estuarySelect">
@@ -67,216 +92,319 @@ button.logout {
       <option value="size">Size</option>
     </select>
   </div>
-
-  <div class="control-group">
-    <label>Select Medium:</label>
-    <select id="mediumSelect">
-      <option value="">-- Choose --</option>
-      <option value="water">Water</option>
-      <option value="sediment">Sediment</option>
-    </select>
-  </div>
-
 </div>
 
-<div id="map"></div>
+<div id="mainLayout">
+  <div id="map"></div>
 
-<div class="chart-box" id="abundanceCharts">
-  <canvas id="waterAbundanceCanvas"></canvas>
-  <canvas id="sedimentAbundanceCanvas"></canvas>
+  <div id="maxPanel">
+    <b>Global & Estuary Statistics</b>
+    <div id="maxContent">Loading...</div>
+  </div>
+</div>
+
+<div id="chartContainer">
+  <canvas id="barCanvas"></canvas>
+  <canvas id="pieCanvas"></canvas>
 </div>
 
 <script>
 const API_BASE = "https://india-estuaries-api.onrender.com";
 
-/* =========================
-   AUTH SYSTEM
-========================= */
+const SIZE_KEYS = ["lt_1mm","mm_1_to_2_5","mm_2_5_to_5"];
+const SHAPE_KEYS = ["fiber","fragment","film","foam","pellet"];
 
-// Run immediately before anything else
-function initAuth() {
-  const token = localStorage.getItem("access_token");
-  const logoutBtn = document.getElementById("logoutBtn");
+let COLOR_KEYS = [];
 
-  if (!token) {
-    window.location.href = "/static/login.html";
-    return;
-  }
+let currentEstuary = "";
+let currentPoints = [];
 
-  logoutBtn.style.display = "inline-block";
-}
+let barChart = null;
+let pieChart = null;
 
-async function logout() {
-  const token = localStorage.getItem("access_token");
-
-  if (token) {
-    try {
-      await fetch(`${API_BASE}/logout`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
-  }
-
-  localStorage.removeItem("access_token");
-  window.location.href = "/static/login.html";
-}
-
-async function authFetch(url) {
-  const token = localStorage.getItem("access_token");
-
-  if (!token) {
-    logout();
-    return;
-  }
-
-  const response = await fetch(url, {
-    headers: {
-      "Authorization": `Bearer ${token}`
-    }
-  });
-
-  if (response.status === 401) {
-    logout();
-    return;
-  }
-
-  return response;
-}
-
-initAuth();
-
-/* =========================
-   MAP SETUP
-========================= */
+/* ================= MAP ================= */
 
 const map = L.map("map").setView([12.8, 80.2], 7);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
-  .addTo(map);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap"
+}).addTo(map);
 
 const markers = L.layerGroup().addTo(map);
 
-let charts = [];
+/* ================= LOAD ESTUARY ================= */
 
-/* =========================
-   LOAD ESTUARY
-========================= */
+document.getElementById("estuarySelect")
+.addEventListener("change", loadEstuary);
 
-document
-  .getElementById("estuarySelect")
-  .addEventListener("change", loadEstuary);
+async function loadEstuary(){
 
-async function loadEstuary() {
-  const estuary = this.value;
-  if (!estuary) return;
+  currentEstuary = this.value;
+  if(!currentEstuary) return;
 
   markers.clearLayers();
-  destroyCharts();
+  currentPoints = [];
 
-  try {
-    const response = await authFetch(
-      `${API_BASE}/estuaries/${estuary}/abundance`
-    );
+  try{
 
-    if (!response) return;
+    const [abRes, shRes, colRes, szRes] = await Promise.all([
+      fetch(`${API_BASE}/estuaries/${currentEstuary}/abundance`),
+      fetch(`${API_BASE}/estuaries/${currentEstuary}/shape`),
+      fetch(`${API_BASE}/estuaries/${currentEstuary}/color`),
+      fetch(`${API_BASE}/estuaries/${currentEstuary}/size`)
+    ]);
 
-    const baseData = await response.json();
+    const abundance = await abRes.json();
+    const shape = await shRes.json();
+    const color = await colRes.json();
+    const size = await szRes.json();
 
-    if (!baseData.points || baseData.points.length === 0) {
-      alert("No data found");
-      return;
-    }
+    if(!abundance.points) return;
 
-    baseData.points.forEach(pt => {
-      markers.addLayer(
-        L.marker([pt.latitude, pt.longitude])
-          .bindPopup(
-            `<b>${pt.station_code}</b><br>
-             Water: ${pt.water_abundance}<br>
-             Sediment: ${pt.sediment_abundance}`
-          )
-      );
+    COLOR_KEYS = color.points?.length
+      ? Object.keys(color.points[0].water)
+      : [];
+
+    currentPoints = abundance.points.map(pt => {
+
+      const shapePt = shape.points?.find(s => s.station_code === pt.station_code) || {};
+      const colorPt = color.points?.find(s => s.station_code === pt.station_code) || {};
+      const sizePt  = size.points?.find(s => s.station_code === pt.station_code) || {};
+
+      return {
+        ...pt,
+        shape: shapePt,
+        color: colorPt,
+        size: sizePt
+      };
     });
 
-    drawAbundance(baseData.points);
-    showLayer();
+    /* ===== MARKERS ===== */
 
-  } catch (err) {
-    console.error("Error loading estuary:", err);
+    currentPoints.forEach(pt => {
+
+      const popup = `
+        <div style="max-height:300px; overflow-y:auto; font-size:13px;">
+          <b>${pt.station_code}</b><br><br>
+
+          <b>Abundance</b><br>
+          Water: ${pt.water_abundance}<br>
+          Sediment: ${pt.sediment_abundance}<br><br>
+
+          <b>Size (Water)</b><br>
+          ${formatObj(pt.size?.water)}<br><br>
+
+          <b>Size (Sediment)</b><br>
+          ${formatObj(pt.size?.sediment)}<br><br>
+
+          <b>Shape (Water)</b><br>
+          ${formatObj(pt.shape?.water)}<br><br>
+
+          <b>Shape (Sediment)</b><br>
+          ${formatObj(pt.shape?.sediment)}<br><br>
+
+          <b>Color (Water)</b><br>
+          ${formatObj(pt.color?.water)}<br><br>
+
+          <b>Color (Sediment)</b><br>
+          ${formatObj(pt.color?.sediment)}
+        </div>
+      `;
+
+      const marker = L.marker([pt.latitude, pt.longitude])
+        .bindPopup(popup, { maxWidth: 350 });
+
+      markers.addLayer(marker);  // ✅ THIS WAS MISSING
+    });
+
+    computeEstuaryAverages();
+
+  }catch(err){
+    console.error(err);
     alert("Error loading data");
   }
 }
 
-/* =========================
-   CHARTS
-========================= */
+/* ================= FORMAT ================= */
 
-function destroyCharts() {
-  charts.forEach(c => c.destroy());
-  charts = [];
+function formatObj(obj){
+  if(!obj) return "No data";
+  return Object.entries(obj)
+    .map(([k,v]) => `${k}: ${v}`)
+    .join("<br>");
 }
 
-function drawAbundance(points) {
-  charts.push(
-    new Chart(document.getElementById("waterAbundanceCanvas"), {
-      type: "bar",
-      data: {
-        labels: points.map(p => p.station_code),
-        datasets: [{
-          label: "Water Abundance",
-          data: points.map(p => p.water_abundance)
-        }]
-      }
-    })
-  );
+/* ================= CHARTS ================= */
 
-  charts.push(
-    new Chart(document.getElementById("sedimentAbundanceCanvas"), {
-      type: "bar",
-      data: {
-        labels: points.map(p => p.station_code),
-        datasets: [{
-          label: "Sediment Abundance",
-          data: points.map(p => p.sediment_abundance)
-        }]
+document.getElementById("layerSelect")
+.addEventListener("change", drawCharts);
+
+function drawStacked(type, keys){
+
+  barChart = new Chart(barCanvas,{
+    type:"bar",
+    data:{
+      labels: currentPoints.map(p=>p.station_code),
+      datasets: [
+
+        // WATER STACK
+        ...keys.map(k => ({
+          label: `Water - ${k}`,
+          data: currentPoints.map(p =>
+            p[type]?.water?.[k] || 0
+          ),
+          stack: "water"
+        })),
+
+        // SEDIMENT STACK
+        ...keys.map(k => ({
+          label: `Sediment - ${k}`,
+          data: currentPoints.map(p =>
+            p[type]?.sediment?.[k] || 0
+          ),
+          stack: "sediment"
+        }))
+      ]
+    },
+    options:{
+      responsive:true,
+      scales:{
+        x:{ stacked:true },
+        y:{ stacked:true }
       }
-    })
-  );
+    }
+  });
+
+  // PIE (combined total per category across all stations)
+
+  const totals = {};
+  keys.forEach(k=>totals[k]=0);
+
+  currentPoints.forEach(p=>{
+    keys.forEach(k=>{
+      totals[k] +=
+        (p[type]?.water?.[k] || 0) +
+        (p[type]?.sediment?.[k] || 0);
+    });
+  });
+
+  pieChart = new Chart(pieCanvas,{
+    type:"pie",
+    data:{
+      labels: keys,
+      datasets:[{
+        data: keys.map(k=>totals[k])
+      }]
+    }
+  });
+}
+function drawAbundance(){
+
+  const barCtx = document.getElementById("barCanvas");
+  const pieCtx = document.getElementById("pieCanvas");
+
+  barChart = new Chart(barCtx,{
+    type:"bar",
+    data:{
+      labels: currentPoints.map(p=>p.station_code),
+      datasets:[
+        {label:"Water", data:currentPoints.map(p=>p.water_abundance)},
+        {label:"Sediment", data:currentPoints.map(p=>p.sediment_abundance)}
+      ]
+    }
+  });
+
+  pieChart = new Chart(pieCtx,{
+    type:"pie",
+    data:{
+      labels: currentPoints.map(p=>p.station_code),
+      datasets:[{
+        data: currentPoints.map(p=>p.water_abundance + p.sediment_abundance)
+      }]
+    }
+  });
 }
 
-/* =========================
-   LAYER DISPLAY
-========================= */
+function drawStacked(type, keys){
 
-document
-  .getElementById("mediumSelect")
-  .addEventListener("change", showLayer);
+  const barCtx = document.getElementById("barCanvas");
+  const pieCtx = document.getElementById("pieCanvas");
 
-document
-  .getElementById("layerSelect")
-  .addEventListener("change", showLayer);
+  barChart = new Chart(barCtx,{
+    type:"bar",
+    data:{
+      labels: currentPoints.map(p=>p.station_code),
+      datasets: keys.map(k=>({
+        label:k,
+        data: currentPoints.map(p=>
+          (p[type]?.water?.[k]||0)+(p[type]?.sediment?.[k]||0)
+        )
+      }))
+    }
+  });
 
-function showLayer() {
-  const layer = document.getElementById("layerSelect").value;
-  const medium = document.getElementById("mediumSelect").value;
+  const totals = {};
+  keys.forEach(k=>totals[k]=0);
 
-  document
-    .querySelectorAll(".chart-box")
-    .forEach(c => c.style.display = "none");
+  currentPoints.forEach(p=>{
+    keys.forEach(k=>{
+      totals[k] += (p[type]?.water?.[k]||0)+(p[type]?.sediment?.[k]||0);
+    });
+  });
 
-  if (!layer || !medium) return;
+  pieChart = new Chart(pieCtx,{
+    type:"pie",
+    data:{
+      labels: keys,
+      datasets:[{data: keys.map(k=>totals[k])}]
+    }
+  });
+}
 
-  const chartContainer = document.getElementById(layer + "Charts");
-  if (chartContainer) {
-    chartContainer.style.display = "block";
+/* ================= GLOBAL PANEL ================= */
+
+computeGlobalStats();
+
+async function computeGlobalStats(){
+
+  const estuaries = ["Palar","Kollidam","Pulicat"];
+  let allAbundance = [];
+
+  for(const est of estuaries){
+
+    const ab = await fetch(`${API_BASE}/estuaries/${est}/abundance`)
+      .then(r=>r.json());
+
+    ab.points.forEach(p=>p.estuary=est);
+    allAbundance.push(...ab.points);
   }
+
+  const maxAb = allAbundance.reduce((max,p)=>{
+    const val = Math.max(p.water_abundance,p.sediment_abundance);
+    return val>max.val?{pt:p,val}:max;
+  },{val:0});
+
+  document.getElementById("maxContent").innerHTML = `
+    <b>Highest Abundance (All Estuaries)</b><br>
+    ${maxAb.pt.station_code} (${maxAb.pt.estuary}) → ${maxAb.val}
+  `;
+}
+
+/* ================= ESTUARY AVG ================= */
+
+function computeEstuaryAverages(){
+
+  if(currentPoints.length === 0) return;
+
+  let avg = currentPoints.reduce((sum,p)=>
+    sum + p.water_abundance + p.sediment_abundance,0
+  ) / currentPoints.length;
+
+  document.getElementById("maxContent").innerHTML += `
+    <br><br><b>${currentEstuary} Avg Abundance:</b><br>
+    ${avg.toFixed(2)}
+  `;
 }
 </script>
-
 </body>
 </html>
