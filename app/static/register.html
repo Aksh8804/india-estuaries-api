@@ -90,7 +90,9 @@ button:hover {
 </div>
 
 <script>
-const API_BASE = "";
+const API_BASE = "https://india-estuaries-api.onrender.com";
+
+
 
 async function register() {
   const username = document.getElementById("username").value;
@@ -124,7 +126,7 @@ async function register() {
     messageDiv.innerHTML = `
       ${data.message}<br><br>
       📧 Please check your email (and spam folder).<br><br>
-      <a href="/static/login.html">Go to Login</a>
+     <a href="login.html">Go to Login</a>
     `;
 
   } catch (err) {

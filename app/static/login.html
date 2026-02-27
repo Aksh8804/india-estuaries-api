@@ -97,11 +97,9 @@
     <button type="submit" id="loginBtn">Login</button>
   </form>
 
-  <a href="register.html">Create Account</a>
-  <a href="forget-password.html">Forgot Password?</a>
-  <a href="resend verification.html">Resend Verification Email</a>
-
-  <p id="error"></p>
+<a href="/static/register.html">Create Account</a>
+<a href="/static/forgot-password.html">Forgot Password?</a>
+<a href="/static/resend-verification.html">Resend-Verification Email</a>  <p id="error"></p>
 </div>
 
 <script>
@@ -109,7 +107,7 @@ const API_BASE = "https://india-estuaries-api.onrender.com";
 
 // 🔒 If already logged in → go to map
 if(localStorage.getItem("access_token")){
- window.location.href = "map_modified.html";
+window.location.href = "/static/map_modified.html";
 }
 
 document.getElementById("loginForm").addEventListener("submit", async function(e){
@@ -143,7 +141,7 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
 
         if(response.ok){
             localStorage.setItem("access_token", data.access_token);
-            window.location.href = "map_modified.html";
+           window.location.href = "/static/map_modified.html";
         } else {
             errorBox.innerText = data.detail || "Login failed";
         }

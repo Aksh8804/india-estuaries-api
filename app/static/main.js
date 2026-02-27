@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log(`Fetching: /estuary-data/${estuaryName}`);
 
         try {
-            const response = await fetch(`${API_BASE}/estuary-data/${estuaryName}`);
+            const response = await fetch(`/estuary-data/${estuaryName}`);
             if (!response.ok) {
                 throw new Error(`HTTP error: ${response.status}`);
             }

@@ -5,59 +5,77 @@
 <title>About - India Estuary Microplastic Viewer</title>
 
 <style>
-body {
-  margin:0;
-  font-family: Arial, sans-serif;
-}
-
-header {
-  padding: 10px;
-  background: #023;
-  color: white;
-}
+ <p style="margin-top:8px; font-size:14px; color:#555;">SRM Institute of Science and Technology, Kattankulathur</p>
 
 .container {
   padding: 30px;
   max-width: 900px;
   margin: auto;
+  line-height: 1.6;
 }
 
-h3 {
-  margin-top: 0;
+.container ul {
+  padding-left: 20px;
 }
 
-h4 {
-  margin-bottom: 5px;
-  color: #023;
+:root {
+  --bg-color: #ffffff;
+  --text-color: #111;
+  --header-bg: #001a3d;
+  --accent-color: #023;
 }
 
-a {
-  text-decoration: none;
-  color: #023;
-  font-weight: bold;
+body {
+  margin:0;
+  font-family: Arial, sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+header {
+  padding: 10px;
+  background: var(--header-bg);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+h4, a {
+  color: var(--accent-color);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 </style>
 </head>
 
 <body>
 
-<header>
-  <h2>India Estuary Microplastic Viewer</h2>
+<header style="padding: 15px;">
+  <h2 style="margin: 0;">India Estuary Microplastic Viewer</h2>
+  
+  <!-- Theme toggle only, no links -->
+  <button id="themeToggle" style="background:none; border:none; font-size:20px; cursor:pointer; margin-top:8px;">
+    🌙
+  </button>
 </header>
 
 <div class="container">
 
-<h3>About This Portal</h3>
+<h3>About Us</h3>
 <h3>Our Facility</h3>
 
 <div style="text-align:center; margin-bottom:20px;">
- <img src="srm.png" alt="SRM University" 
-     style="max-width:100%; height:auto; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.3);">
-
+  <img src="srm.jpg" alt="SRM University">
   <p style="margin-top:8px; font-size:14px; color:#555;">SRM Institute of Science and Technology, Kattankulathur</p>
 </div>
 
-<p><b>🔬 Multi-Level Microplastic Research Facility</b></p>
+<p><b>Multi-Level Microplastic Research Facility</b></p>
 
 <p>
 SRM Institute of Science and Technology<br>
@@ -98,12 +116,28 @@ srm@gmail.com
 
 <br><br>
 
-<a href="map.html">← Back to Portal</a>
-
-
-
+<a href="/static/map_modified.html">← Back</a>
 
 </div>
+
+<script>
+const themeToggle = document.getElementById("themeToggle");
+let darkMode = false;
+
+themeToggle.addEventListener("click", () => {
+  darkMode = !darkMode;
+
+  if(darkMode){
+    themeToggle.textContent = "☀️";
+    document.body.style.background = "#2a2a2a";
+    document.body.style.color = "#eee";
+  } else {
+    themeToggle.textContent = "🌙";
+    document.body.style.background = "#ffffff";
+    document.body.style.color = "#111";
+  }
+});
+</script>
 
 </body>
 </html>

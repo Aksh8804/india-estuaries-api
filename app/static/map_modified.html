@@ -145,10 +145,10 @@ button.logout {
   
   <!-- About Us link under title -->
   <div style="margin-top: 8px;">
-    <a href="about.html" 
-       style="color:white; text-decoration:none; font-weight:600; font-size:16px;">
-       About Us
-    </a>
+     <a href="/static/about.html"
+        style="color:white; text-decoration:none; font-weight:600; font-size:16px;">
+        About Us
+     </a>
   </div>
 
   <!-- Theme toggle and logout -->
@@ -221,13 +221,13 @@ if(token){
 
 if (!token) {
   // Not logged in → redirect immediately
-   window.location.href = "login.html";
+   window.location.href = "/static/login.html";
 }
 
 // ===== LOGOUT FUNCTION =====
 function logout() {
   localStorage.removeItem("access_token");
-   window.location.href = "login.html";
+  window.location.href = "/static/login.html";
 }
 
 Chart.defaults.font.family = "Arial";
@@ -374,9 +374,39 @@ if(pieChart) pieChart.destroy();
 
 function formatObj(obj){
   if(!obj) return "No data";
+
+  const keyMap = {
+    "lt_1mm": "< 1 mm",
+    "mm_1_to_2_5": "1 mm to 2.5 mm",
+    "mm_2_5_to_5": "2.5 mm to 5 mm"
+  };
+
   return Object.entries(obj)
-    .map(([k,v]) => `${k}: ${v}`)
+    .map(([k,v]) => {
+      const formattedKey = keyMap[k] || k;
+      return `${formattedKey} : ${v}`;
+    })
     .join("<br>");
+}
+
+
+function formatKey(key){
+
+  const keyMap = {
+    // Size
+    "lt_1mm": "< 1 mm",
+    "mm_1_to_2_5": "1 mm to 2.5 mm",
+    "mm_2_5_to_5": "2.5 mm to 5 mm",
+
+    // Shape
+    "fiber": "Fiber",
+    "fragment": "Fragment",
+    "film": "Film",
+    "foam": "Foam",
+    "pellet": "Pellet"
+  };
+
+  return keyMap[key] || key;
 }
 
 /* ================= CHARTS ================= */
@@ -441,7 +471,7 @@ barChart = new Chart(barCtx,{
   data:{
     labels: currentPoints.map(p=>p.station_code),
     datasets:[{
-      label: medium + " abundance",
+      label: medium.toUpperCase() + " Abundance",
       data: values,
       borderWidth: 1
     }]
@@ -502,7 +532,7 @@ function drawStacked(type, keys){
     data:{
       labels: currentPoints.map(p=>p.station_code),
       datasets: keys.map(k => ({
-        label: k,
+        label: formatKey(k),
         data: currentPoints.map(p =>
           (p[type]?.[medium]?.[k] || 0)
         ),
@@ -539,7 +569,7 @@ function drawStacked(type, keys){
   pieChart = new Chart(pieCtx,{
     type:"pie",
     data:{
-      labels: keys,
+      labels: keys.map(k => formatKey(k)),
       datasets:[{
         data: keys.map(k=>totals[k])
       }]

@@ -15,9 +15,9 @@
 <script>
 async function resend(){
   const email = document.getElementById("email").value;
+  const API_BASE = "https://india-estuaries-api.onrender.com";
 
-  const response = await fetch("",{
-    method:"POST",
+  const response = await fetch(`${API_BASE}/resend-verification-email`, {    method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({email})
   });
