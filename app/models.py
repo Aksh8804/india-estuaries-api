@@ -29,6 +29,7 @@ class SurveyPoints(Base):
     latitude = Column(Numeric)
     longitude = Column(Numeric)
     survey_date = Column(Date)
+    state = Column(String(100), nullable=False)
 
 
 class PlasticAbundance(Base):

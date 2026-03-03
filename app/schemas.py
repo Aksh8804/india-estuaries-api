@@ -8,6 +8,7 @@ class SurveyPointBase(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     survey_date: date | None = None
+    state: str | None = None
 
 class SurveyPoint(SurveyPointBase):
     point_id: int
