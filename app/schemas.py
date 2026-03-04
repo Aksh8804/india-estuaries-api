@@ -25,6 +25,7 @@ class EstuaryAbundancePoint(BaseModel):
     station_code: str
     latitude: float
     longitude: float
+    state: str | None = None
     water_abundance: Optional[float] = None
     sediment_abundance: Optional[float] = None
 

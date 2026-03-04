@@ -18,6 +18,7 @@ def get_estuary_abundance(estuary_name: str, db: Session = Depends(get_db)):
             sp.station_code,
             sp.latitude,
             sp.longitude,
+            sp.state,   -- 👈 ADD THIS
             pa.water_abundance,
             pa.sediment_abundance
         FROM survey.survey_points sp
@@ -50,6 +51,7 @@ def get_estuary_abundance(estuary_name: str, db: Session = Depends(get_db)):
                 "station_code": r.station_code,
                 "latitude": round(r.latitude, 6) if r.latitude else None,
                 "longitude": round(r.longitude, 6) if r.longitude else None,
+                "state": r.state,   # 👈 ADD THIS
                 "water_abundance": round(r.water_abundance, 2) if r.water_abundance else None,
                 "sediment_abundance": round(r.sediment_abundance, 2) if r.sediment_abundance else None,
             }
