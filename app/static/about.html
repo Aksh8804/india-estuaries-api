@@ -1,143 +1,358 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
+
 <title>About - India Estuary Microplastic Viewer</title>
 
 <style>
- <p style="margin-top:8px; font-size:14px; color:#555;">SRM Institute of Science and Technology, Kattankulathur</p>
-
-.container {
-  padding: 30px;
-  max-width: 900px;
-  margin: auto;
-  line-height: 1.6;
-}
-
-.container ul {
-  padding-left: 20px;
-}
 
 :root {
-  --bg-color: #ffffff;
-  --text-color: #111;
-  --header-bg: #001a3d;
-  --accent-color: #023;
+ --bg-color:#ffffff;
+ --text-color:#111;
+ --header-bg:#001a3d;
+ --accent-color:#023;
 }
 
-body {
-  margin:0;
-  font-family: Arial, sans-serif;
-  background: var(--bg-color);
-  color: var(--text-color);
+body{
+margin:0;
+font-family:Arial,sans-serif;
+background:var(--bg-color);
+color:var(--text-color);
 }
 
-header {
-  padding: 10px;
-  background: var(--header-bg);
-  color: white;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+
+header{
+padding:15px;
+background:var(--header-bg);
+color:white;
 }
 
-h4, a {
-  color: var(--accent-color);
+
+.container{
+  padding:20px 40px;   /* left & right spacing */
+  margin:0;            /* remove auto center */
+  max-width:100%;      /* full width */
+  line-height:1.6;
 }
 
-img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+
+.container ul{
+padding-left:20px;
 }
+
+
+h4,a{
+color:var(--accent-color);
+}
+
+
+img{
+max-width:100%;
+border-radius:8px;
+box-shadow:0 2px 5px rgba(0,0,0,0.3);
+}
+
+
+button{
+background:none;
+border:none;
+font-size:20px;
+cursor:pointer;
+}
+
+
 </style>
+
 </head>
+
 
 <body>
 
-<header style="padding: 15px;">
-  <h2 style="margin: 0;">India Estuary Microplastic Viewer</h2>
-  
-  <!-- Theme toggle only, no links -->
-  <button id="themeToggle" style="background:none; border:none; font-size:20px; cursor:pointer; margin-top:8px;">
-    🌙
-  </button>
+
+<header>
+
+<h2>India Estuary Microplastic Viewer</h2>
+
+
+<button id="themeToggle">
+
+🌙
+
+</button>
+
 </header>
+
+
 
 <div class="container">
 
-<h3>About Us</h3>
-<h3>Our Facility</h3>
 
-<div style="text-align:center; margin-bottom:20px;">
-  <img src="srm.jpg" alt="SRM University">
-  <p style="margin-top:8px; font-size:14px; color:#555;">SRM Institute of Science and Technology, Kattankulathur</p>
+
+<h3>About Us</h3>
+
+<!-- Introduction Video Section -->
+<div style="text-align:center; margin:30px 0;">
+
+  <video id="aboutVideo"
+         width="1500"
+       height="900"
+       controls
+       preload="metadata"
+       style="
+          max-width:100%;
+          border-radius:10px;
+          box-shadow:0 4px 10px rgba(0,0,0,0.3);
+          cursor:pointer;">
+
+    <source src="/static/mlmp_lab_srm.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+
+  </video>
+
 </div>
 
-<p><b>Multi-Level Microplastic Research Facility</b></p>
+
+<h3>Overview</h3>
+<p>
+
+The Marine Litter and Microplastics (MLMP) Research Laboratory, established in 2022 at SRM Institute of Science and Technology (SRMIST), Kattankulathur (KTR Campus) under the Department of Civil Engineering, is located in the Main Campus (MB–16). The laboratory operates with funding support from the National Centre for Coastal Research (NCCR), Ministry of Earth Sciences (MoES), Government of India (GoI).
+</p>
+<p>
+The MLMP Lab is dedicated to comprehensive research on marine litter and microplastics, focusing on both qualitative and quantitative assessment in water, sediment, and biota samples. The facility is equipped with advanced analytical infrastructure, including density separation systems, wet peroxide oxidation units, sieving and filtration assemblies, and stereo zoom and digital microscopy for microplastic identification.
+</p>
+<p>
+The laboratory follows standardized sampling protocols and strict contamination control measures to ensure data accuracy and reliability. Research activities emphasize morphological identification, size and shape classification, abundance estimation, and environmental risk assessment. Through its systematic monitoring and analytical approach, the MLMP Lab contributes to scientific research, environmental sustainability, and policy-supportive studies on coastal and marine ecosystems.
+
+</p>
+
+
+
+<div style="text-align:center;">
+
+
+<img src="/static/srm.jpg">
+
+
+<p style="margin-top:8px;font-size:14px;color:#555;">
+
+SRM Institute of Science and Technology,
+Kattankulathur
+
+</p>
+
+
+</div>
+
+
+
 
 <p>
-SRM Institute of Science and Technology<br>
-Kattankulathur, Tamil Nadu, India
+
+<b>Marine Litter And Microplastic Research Facility</b>
+
 </p>
+
+
+
+<p>
+
+SRM Institute of Science and Technology<br>
+
+Kattankulathur,
+Tamil Nadu,
+India
+
+</p>
+
+
+
 
 <h4>About the Facility</h4>
+
+
 <p>
-Advanced environmental research infrastructure dedicated to microplastic detection, 
-characterization, monitoring, and environmental impact assessment.
+
+Advanced environmental research infrastructure dedicated to plastic and microplastic detection,
+characterization,
+monitoring and environmental impact assessment.
+
 </p>
 
+
+
+
 <h4>Key Analytical Capabilities</h4>
+
+
 <ul>
-  <li>Microplastic extraction from water & sediment</li>
-  <li>Density separation techniques</li>
-  <li>Microscopic size classification</li>
-  <li>Shape analysis (fiber, fragment, bead, film, pellet)</li>
-  <li>Color categorization</li>
-  <li>Polymer identification using FTIR</li>
+
+<li>plastic and Microplastic extraction from water and sediment</li>
+
+<li>Density separation techniques</li>
+
+<li>Microscopic size classification</li>
+
+<li>Shape analysis (fiber, fragment, bead, film, pellet)</li>
+
+<li>Color categorization</li>
+
+<li>Polymer identification using FTIR</li>
+
 </ul>
 
+
+
+
 <h4>Research Focus Areas</h4>
+
+
 <ul>
-  <li>Coastal and estuarine microplastic pollution</li>
-  <li>Urban wastewater contamination</li>
-  <li>Polymer distribution studies</li>
-  <li>Microplastic–heavy metal interaction</li>
+
+<li>Coastal microplastic pollution</li>
+
+<li>Estuarine pollution studies</li>
+
+<li>Urban wastewater contamination</li>
+
+<li>Polymer distribution analysis</li>
+
+<li>Microplastic–heavy metal interaction</li>
+
 </ul>
+
+
+
+
+
+<h4>Available Equipments – MLMP Lab</h4>
+
+
+
+<ul>
+
+<li>Digital Stereo Microscope</li>
+
+<li>Weighing Balance</li>
+
+<li>Deep Freezer</li>
+
+<li>Hot Air Oven</li>
+
+<li>Flow Meter</li>
+
+<li>Hot Plate with Magnetic Stirrer</li>
+
+<li>Fume Hood</li>
+
+<li>Refrigerator</li>
+
+<li>Under Water Camera</li>
+
+<li>Hot Plate</li>
+
+<li>Multiparameter Probe</li>
+
+<li>Shaking Incubator with Cooling</li>
+
+<li>Laminar Air Flow</li>
+
+<li>Micro-Weighing Balance</li>
+
+<li>Centrifuge & Spare Head</li>
+
+<li>Autoclave Vertical</li>
+
+<li>Manta Trawl Net</li>
+
+<li>Glass Double Distillation Unit</li>
+
+<li>Hand GPS</li>
+
+<li>TDS Meter</li>
+
+<li>Turbidity Meter</li>
+
+<li>Electric Conductivity Meter</li>
+
+<li>pH Meter</li>
+
+<li>Refractometer</li>
+
+<li>Thermometer</li>
+
+<li>Van Veen Grab</li>
+
+<li>Vacuum Filtration Unit</li>
+
+<li>Life Jackets</li>
+
+<li>Snorkel Mask</li>
+
+<li>5 Lts Gas Cylinder</li>
+
+</ul>
+
+
+
+
+<h4>Equipment Document</h4>
+
+<div style="text-align:center; margin:30px 0;">
+
+  <iframe 
+      src="/static/mlmp_lab_equipment_srm.pdf"
+      width="100%"
+      height="600px"
+      style="
+        border:none;
+        border-radius:10px;
+        box-shadow:0 4px 10px rgba(0,0,0,0.3);">
+  </iframe>
+
+</div>
 
 <h4>Portal Administrator</h4>
 <p>
-Name: Your RA<br>
-Institution: SRM<br>
-Email: ra@gmail.com<br>
-srm@gmail.com
+Name: Research Assistant<br>
+Institution: SRM Institute of Science and Technology<br>
+Email: ra@gmail.com
 </p>
-
 <br><br>
-
-<a href="/static/map_modified.html">← Back</a>
-
+<a href="/static/map_modified.html">
+← Back to Map
+</a>
 </div>
 
 <script>
-const themeToggle = document.getElementById("themeToggle");
-let darkMode = false;
 
-themeToggle.addEventListener("click", () => {
-  darkMode = !darkMode;
+const btn=document.getElementById("themeToggle");
+let dark=false;
+btn.onclick=function(){
+dark=!dark;
+if(dark){
+btn.textContent="☀️";
+document.body.style.background="#2a2a2a";
+document.body.style.color="#eee";
+}
+else{
+btn.textContent="🌙";
+document.body.style.background="#ffffff";
+document.body.style.color="#111";
+}
+}
+<script>
+const video = document.getElementById("aboutVideo");
 
-  if(darkMode){
-    themeToggle.textContent = "☀️";
-    document.body.style.background = "#2a2a2a";
-    document.body.style.color = "#eee";
-  } else {
-    themeToggle.textContent = "🌙";
-    document.body.style.background = "#ffffff";
-    document.body.style.color = "#111";
-  }
+video.addEventListener("loadeddata", function () {
+    video.currentTime = 0.01;   // forces first frame render
+    video.pause();
 });
-</script>
 
+
+
+</script>
 </body>
 </html>

@@ -355,3 +355,32 @@ def promote_user(
     db.commit()
 
     return {"message": f"User promoted to {user.role.value}"}
+    
+# =========================================================
+# VERIFY USER (MASTER ADMIN ONLY)
+# =========================================================
+
+@router.post("/verify-user", tags=["Master Admin"])
+def verify_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_master: User = Depends(require_master_admin)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_verified:
+        raise HTTPException(status_code=400, detail="User already verified")
+
+    user.is_verified = True
+
+    # Optional: remove any pending email verification tokens
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == user.id
+    ).delete()
+
+    db.commit()
+
+    return {"message": f"User '{user.username}' verified successfully"}

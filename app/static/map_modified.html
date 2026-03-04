@@ -171,7 +171,22 @@ button.logout {
   </div>
 </header>
 
+<div style="padding:10px 20px;">
+  <button onclick="toggleMainMenu()" style="background:#16a085; color:white; padding:6px 12px; border:none; cursor:pointer;">
+    ☰ Menu
+  </button>
 
+  <div id="mainMenu" style="display:none; background:#f4f6f7; padding:15px; border-bottom:2px solid #ccc; margin-top:10px;">
+    <div class="control-group">
+  <label>Select Analysis Type:</label>
+  <select id="analysisType">
+    <option value="">-- Choose --</option>
+    <option value="highest">Highest Values Across All Estuaries</option>
+    <option value="lowest">Lowest Values Across All Estuaries</option>
+    <option value="state">Ranks Based On State</option>
+    <option value="estuary">Ranks Based On Estuaries</option>
+  </select>
+</div>
 
 <div id="analysisSubOptions" style="margin-top:15px;"></div>
 
@@ -181,23 +196,6 @@ button.logout {
 </div>
 
 <div id="controls">
-
-
-<div class="control-group">
-  <label>Menu Tasks:</label>
-  <select id="analysisType">
-    <option value="">-- Choose Task --</option>
-    <option value="highest">Highest Values Across All Estuaries</option>
-    <option value="lowest">Lowest Values Across All Estuaries</option>
-    <option value="state">Ranks Based On State</option>
-    <option value="estuary">Ranks Based On Estuaries</option>
-  </select>
-</div>
-
-<div id="analysisSubOptions" style="padding:10px 20px;"></div>
-<div id="dynamicPanel" style="padding:10px 20px;"></div>
-
-
   <div class="control-group">
     <label>Select Estuary:</label>
     <select id="estuarySelect">
@@ -304,18 +302,17 @@ function formatObj(obj) {
     .join(", ");
 }
 const CHART_COLORS = [
-  "#1f77b4", // blue
-  "#ff7f0e", // orange
-  "#2ca02c", // green
-  "#d62728", // red
-  "#9467bd", // purple
-  "#8c564b", // brown
-  "#e377c2", // pink
-  "#7f7f7f", // gray
-  "#bcbd22", // yellow-green
-  "#17becf"  // cyan
-];
-/* ================= LOAD ESTUARY ================= */
+  "#AEC6CF", // pastel blue
+  "#FFD1DC", // pastel pink
+  "#C1E1C1", // pastel green
+  "#FFFACD", // pastel yellow
+  "#FFB347", // pastel orange
+  "#B39EB5", // pastel purple
+  "#FF6961", // pastel red
+  "#77DD77", // pastel mint green
+  "#FDFD96", // pastel lemon
+  "#84B6F4"  // pastel sky blue
+];/* ================= LOAD ESTUARY ================= */
 document.getElementById("estuarySelect")
 .addEventListener("change", loadEstuary);
 async function loadEstuary(){
@@ -717,6 +714,11 @@ async function showLowest(){
 }
 
 
+// Toggle main menu
+function toggleMainMenu() {
+  const menu = document.getElementById("mainMenu");
+  menu.style.display = menu.style.display === "none" ? "block" : "none";
+}
 
 // Highest Values Panel
 async function showHighestPanel() {
@@ -1017,16 +1019,28 @@ async function showStateRanks(state){
   for(const med of mediums){
     html += `<h4>${med.charAt(0).toUpperCase() + med.slice(1)}</h4>`;
 
-    // ===== Abundance =====
-    html += `<b>Abundance:</b><br>`;
-    const sortedAb = statePoints.slice().sort((a,b) => 
+    // ===== Abundance Table =====
+    const abUnit = med === "sediment" ? "Abundance (per 50 g)" : "Abundance (per cubic meter)";
+    html += `<table border="1" cellpadding="6" cellspacing="0">
+       <tr><th>Station</th><th>Estuary</th><th>${abUnit}</th></tr>`;
+    
+
+
+const sortedAb = statePoints.slice().sort((a,b) => 
       ((b[`${med}_abundance`]||0) - (a[`${med}_abundance`]||0))
     );
-    html += `<ol>${sortedAb.map(p => `<li>${p.station_code} (${p.estuary}): ${p[`${med}_abundance`]})</li>`).join("")}</ol>`;
+    sortedAb.forEach(p=>{
+      html += `<tr>
+        <td>${p.station_code}</td>
+        <td>${p.estuary}</td>
+        <td>${p[`${med}_abundance`] || 0}</td>
+      </tr>`;
+    });
+    html += `</table><br>`;
 
-    // ===== Color =====
-    html += `<b>Color:</b><br>`;
-    // Sum each color across estuaries
+    // ===== Color Table =====
+    html += `<table border="1" cellpadding="6" cellspacing="0">
+      <tr><th>Color</th><th>Total Count</th></tr>`;
     const colorSum = {};
     statePoints.forEach(p=>{
       const colors = p.color?.[med] || {};
@@ -1034,11 +1048,15 @@ async function showStateRanks(state){
         colorSum[k] = (colorSum[k]||0) + v;
       }
     });
-    const sortedColor = Object.entries(colorSum).sort((a,b)=>b[1]-a[1]);
-    html += `<ol>${sortedColor.map(([k,v])=>`<li>${k}: ${v}</li>`).join("")}</ol>`;
+    Object.entries(colorSum).sort((a,b)=>b[1]-a[1])
+      .forEach(([k,v])=>{
+        html += `<tr><td>${k}</td><td>${v}</td></tr>`;
+      });
+    html += `</table><br>`;
 
-    // ===== Shape =====
-    html += `<b>Shape:</b><br>`;
+    // ===== Shape Table =====
+    html += `<table border="1" cellpadding="6" cellspacing="0">
+      <tr><th>Shape</th><th>Total Count</th></tr>`;
     const shapeSum = {};
     statePoints.forEach(p=>{
       const shapes = p.shape?.[med] || {};
@@ -1046,11 +1064,15 @@ async function showStateRanks(state){
         shapeSum[k] = (shapeSum[k]||0) + v;
       }
     });
-    const sortedShape = Object.entries(shapeSum).sort((a,b)=>b[1]-a[1]);
-    html += `<ol>${sortedShape.map(([k,v])=>`<li>${formatKey(k)}: ${v}</li>`).join("")}</ol>`;
+    Object.entries(shapeSum).sort((a,b)=>b[1]-a[1])
+      .forEach(([k,v])=>{
+        html += `<tr><td>${formatKey(k)}</td><td>${v}</td></tr>`;
+      });
+    html += `</table><br>`;
 
-    // ===== Size =====
-    html += `<b>Size:</b><br>`;
+    // ===== Size Table =====
+    html += `<table border="1" cellpadding="6" cellspacing="0">
+      <tr><th>Size</th><th>Total Count</th></tr>`;
     const sizeSum = {};
     statePoints.forEach(p=>{
       const sizes = p.size?.[med] || {};
@@ -1058,14 +1080,15 @@ async function showStateRanks(state){
         sizeSum[k] = (sizeSum[k]||0) + v;
       }
     });
-    const sortedSize = Object.entries(sizeSum).sort((a,b)=>b[1]-a[1]);
-    html += `<ol>${sortedSize.map(([k,v])=>`<li>${formatKey(k)}: ${v}</li>`).join("")}</ol>`;
+    Object.entries(sizeSum).sort((a,b)=>b[1]-a[1])
+      .forEach(([k,v])=>{
+        html += `<tr><td>${formatKey(k)}</td><td>${v}</td></tr>`;
+      });
+    html += `</table><br>`;
   }
 
   panel.innerHTML = html;
 }
-
-
 // Ranks by Estuary Menu
 document.getElementById("taskResult").innerHTML = "";
 function showEstuaryMenu() {
@@ -1101,6 +1124,7 @@ async function showEstuaryRanks(estuary) {
 
     // ABUNDANCE
     html += `<b>Abundance:</b><br>`;
+
     const sortedAb = estuaryPoints.slice().sort((a,b)=> (b[`${med}_abundance`]||0) - (a[`${med}_abundance`]||0));
     html += `<table border="1" cellpadding="5" style="border-collapse:collapse; margin-bottom:10px;">
       <tr><th>Rank</th><th>Station</th><th>Value</th></tr>
@@ -1239,6 +1263,11 @@ else if(value === "lowest"){
     });
   }
 });
+
+function formatKey(key){
+    return key.replace(/_/g, " ").toUpperCase();
+}
+
 </script>
 </body>
 </html>
