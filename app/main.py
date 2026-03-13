@@ -136,14 +136,10 @@ def get_points_geojson(db: Session = Depends(get_db)):
 # =========================
 # STATIC FILES
 # =========================
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 
 app.mount(
     "/static",
     StaticFiles(directory=BASE_DIR / "static"),
     name="static",
 )
-
-@app.get("/")
-def root():
-    return FileResponse(BASE_DIR / "static" / "map.html")
