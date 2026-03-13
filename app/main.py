@@ -53,7 +53,7 @@ origins = [
     "http://localhost:5500",
     "http://127.0.0.1:8000",
     "http://localhost:8000",
-    "https://your-render-app.onrender.com"  # replace with your real Render URL
+    "https://india-estuaries-api.onrender.com"
 ]
 
 app.add_middleware(
@@ -63,6 +63,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# =========================
+# ALLOW OPTIONS (CORS PREFLIGHT)
+# =========================
+@app.middleware("http")
+async def allow_options_requests(request, call_next):
+    if request.method == "OPTIONS":
+        return JSONResponse(status_code=200, content={"message": "OK"})
+    response = await call_next(request)
+    return response
 
 # =========================
 # INCLUDE ROUTERS
