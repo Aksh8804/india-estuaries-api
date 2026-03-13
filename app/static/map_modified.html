@@ -1,4 +1,5 @@
-```html
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,53 +10,92 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<style>
-html, body { height:100%; margin:0; padding:0; }
 
-body{
+
+
+
+<style>
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
   background-color: var(--bg-color);
   color: var(--text-color);
+  margin:0;
   font-family: Arial;
 }
 
-header{
+header { 
   background: var(--header-bg);
-  color:#fff;
+  color: #ffffff;
   padding:10px;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
 
-#controls{
+#controls {
   display:flex;
   flex-wrap:wrap;
   padding:10px 20px;
-  background: var(--controls-bg);
-  gap:20px;
+ background: var(--controls-bg);  gap:20px;
+  border-bottom: 1px solid #333;
 }
 
-.control-group{ display:flex; flex-direction:column; }
+.control-group { display:flex; flex-direction:column; }
 
-#mainLayout{ display:flex; height:80vh; }
-
-#map{ flex:1; height:100%; }
-
-#chartContainer{
-  display:none;
-  padding:40px 20px;
-  flex-direction:column;
-  align-items:center;
-  gap:50px;
+#mainLayout {
+  display: flex;
+  height: 80vh;
 }
 
-#barCanvas{ width:80%; height:400px !important; }
+#map {
+  flex: 1;
+  height: 100%;
+}
 
-.pie-wrapper{ width:100%; display:flex; justify-content:center; }
+#maxPanel {
+  width: 320px;
+  background: #fff8e6;
+  padding: 15px;
+  border-left: 3px solid #e67e22;
+  overflow-y: auto;
+}
 
-#pieCanvas{ width:400px !important; height:400px !important; }
+#chartContainer {
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 50px;        /* space between charts */
+}
 
-button.logout{
+
+#barCanvas {
+  border-radius: 14px;
+  box-shadow: none;
+  width: 80%;
+  height: 400px !important;
+ 
+}
+
+
+.pie-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+#pieCanvas {
+  width: 400px !important;   /* fixed width */
+  height: 400px !important;
+}
+
+button.logout {
   background:#c0392b;
   border:none;
   color:white;
@@ -63,179 +103,317 @@ button.logout{
   cursor:pointer;
 }
 
-:root{
-  --bg-color:#ffffff;
-  --text-color:#111;
-  --header-bg:#001a3d;
-  --controls-bg:#e8e8e8;
-  --dropdown-bg:#ffffff;
+.leaflet-popup-content {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-size: 13px;
 }
+
+.leaflet-popup-tip {
+  background: #ffffff !important;
+}
+
+.control-group label {
+  color: var(--text-color);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.control-group select {
+  background: var(--dropdown-bg);
+  color: var(--text-color);
+  border: 1px solid #444;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+
+:root {
+  --bg-color: #ffffff;
+  --text-color: #111;
+ --header-bg: #001a3d;
+  --controls-bg: #e8e8e8;
+  --popup-bg: #ffffff;
+  --dropdown-bg: #ffffff;
+}
+
+#chartContainer {
+  display: none;
+}
+
 </style>
 </head>
+
+
 
 <body>
 
 <header style="flex-direction: column; align-items: flex-start; padding: 15px;">
-<h2 style="margin:0;">India Estuary Microplastic Viewer</h2>
+  <h2 style="margin: 0;">India Estuary Microplastic Viewer</h2>
+  
+  <!-- About Us link under title -->
+  <div style="margin-top: 8px;">
+     <a href="/static/about.html"
+        style="color:white; text-decoration:none; font-weight:600; font-size:16px;">
+        About Us
+     </a>
+  </div>
 
-<div style="margin-top:8px;">
-<a href="/static/about.html" style="color:white;text-decoration:none;font-weight:600;">
-About Us
-</a>
-</div>
+  <!-- Theme toggle and logout -->
+  <div style="display:flex; gap:20px; margin-top:8px;">
+    <button id="themeToggle" style="background:none; border:none; font-size:20px; cursor:pointer;">
+      🌙
+    </button>
 
-<div style="display:flex;gap:20px;margin-top:8px;">
-<button id="themeToggle" style="background:none;border:none;font-size:20px;">🌙</button>
-<button id="logoutBtn" class="logout" onclick="logout()" style="display:none;">Logout</button>
-</div>
+    <button id="logoutBtn" class="logout" onclick="logout()" style="display:none;">
+      Logout
+    </button>
+  </div>
 </header>
 
+<div style="padding:10px 20px;">
+  <button onclick="toggleMainMenu()" style="background:#16a085; color:white; padding:6px 12px; border:none; cursor:pointer;">
+    ☰ Menu
+  </button>
+
+  <div id="mainMenu" style="display:none; background:#f4f6f7; padding:15px; border-bottom:2px solid #ccc; margin-top:10px;">
+    <div class="control-group">
+  <label>Select Analysis Type:</label>
+  <select id="analysisType">
+    <option value="">-- Choose --</option>
+    <option value="highest">Highest Values Across All Estuaries</option>
+    <option value="lowest">Lowest Values Across All Estuaries</option>
+    <option value="state">Ranks Based On State</option>
+    <option value="estuary">Ranks Based On Estuaries</option>
+  </select>
+</div>
+
+<div id="analysisSubOptions" style="margin-top:15px;"></div>
+
+    <div id="dynamicPanel" style="margin-top:15px;"></div>
+    <div id="taskResult" style="padding:10px;"></div>
+  </div>
+</div>
+
 <div id="controls">
-<div class="control-group">
-<label>Select Estuary:</label>
-<select id="estuarySelect">
-<option value="">-- Choose --</option>
-<option value="Palar">Palar</option>
-<option value="Kollidam">Kollidam</option>
-<option value="Pulicat">Pulicat</option>
-</select>
-</div>
+  <div class="control-group">
+    <label>Select Estuary:</label>
+    <select id="estuarySelect">
+      <option value="">-- Choose --</option>
+      <option value="Palar">Palar</option>
+      <option value="Kollidam">Kollidam</option>
+      <option value="Pulicat">Pulicat</option>
+    </select>
+  </div>
 
 <div class="control-group">
-<label>Select Medium:</label>
-<select id="mediumSelect" disabled>
-<option value="">-- Choose --</option>
-<option value="water">Water</option>
-<option value="sediment">Sediment</option>
-</select>
+  <label>Select Medium:</label>
+  <select id="mediumSelect" disabled>
+    <option value="">-- Choose --</option>
+    <option value="water">Water</option>
+    <option value="sediment">Sediment</option>
+  </select>
 </div>
 
-<div class="control-group">
-<label>Select Layer:</label>
-<select id="layerSelect" disabled>
-<option value="">-- Choose --</option>
-<option value="abundance">Abundance</option>
-<option value="shape">Shape</option>
-<option value="color">Color</option>
-<option value="size">Size</option>
-</select>
-</div>
+  <div class="control-group">
+    <label>Select Layer:</label>
+    <select id="layerSelect" disabled>
+      <option value="">-- Choose --</option>
+      <option value="abundance">Abundance</option>
+      <option value="shape">Shape</option>
+      <option value="color">Color</option>
+      <option value="size">Size</option>
+    </select>
+  </div>
 </div>
 
 <div id="mainLayout">
-<div id="map"></div>
+  <div id="map"></div>
+
+ 
 </div>
 
 <div id="chartContainer">
-<canvas id="barCanvas"></canvas>
-<div class="pie-wrapper">
-<canvas id="pieCanvas"></canvas>
-</div>
+  <canvas id="barCanvas"></canvas>
+
+  <div class="pie-wrapper">
+    <canvas id="pieCanvas"></canvas>
+  </div>
 </div>
 
+
+
+```html
 <script>
-
-/* ================= TEMP AUTH SYSTEM ================= */
-
-let token = localStorage.getItem("access_token");
-let viewCount = parseInt(localStorage.getItem("guest_views") || "0");
-
-if(token){
-  document.getElementById("logoutBtn").style.display="inline-block";
-}
-else{
-  if(viewCount >= 3){
-    alert("Guest limit reached. Please login.");
-    window.location.href="/static/login.html";
-  }
-}
-
-function registerGuestView(){
-  if(!token){
-    viewCount++;
-    localStorage.setItem("guest_views", viewCount);
-  }
-}
-
-function logout(){
-  localStorage.removeItem("access_token");
-  window.location.href="/static/login.html";
-}
 
 /* ================= MAP ================= */
 
-const map = L.map("map").setView([12.8,80.2],7);
+const map = L.map("map").setView([12.8, 80.2], 7);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
- attribution:"© OpenStreetMap"
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap"
 }).addTo(map);
 
 const markers = L.layerGroup().addTo(map);
 
-const API_BASE="https://india-estuaries-api.onrender.com";
+const API_BASE = "https://india-estuaries-api.onrender.com";
 
-/* ================= LOAD ESTUARY ================= */
 
-document.getElementById("estuarySelect").addEventListener("change",loadEstuary);
+/* ================= UI REFERENCES ================= */
 
-async function loadEstuary(){
+const estuarySelect = document.getElementById("estuarySelect");
+const mediumSelect  = document.getElementById("mediumSelect");
+const layerSelect   = document.getElementById("layerSelect");
 
-registerGuestView();
+const chartContainer = document.getElementById("chartContainer");
 
-const estuary=this.value;
-if(!estuary) return;
+let currentEstuary = null;
 
-document.getElementById("mediumSelect").disabled=false;
 
-markers.clearLayers();
+/* ================= ESTUARY CHANGE ================= */
 
-try{
+estuarySelect.addEventListener("change", loadEstuary);
 
-const headers = token ? { "Authorization":`Bearer ${token}` } : {};
+async function loadEstuary() {
 
-const [abRes,shRes,colRes,szRes] = await Promise.all([
-fetch(`${API_BASE}/estuaries/${estuary}/abundance`,{headers}),
-fetch(`${API_BASE}/estuaries/${estuary}/shape`,{headers}),
-fetch(`${API_BASE}/estuaries/${estuary}/color`,{headers}),
-fetch(`${API_BASE}/estuaries/${estuary}/size`,{headers})
-]);
+  const estuary = estuarySelect.value;
+  if (!estuary) return;
 
-const abundance = await abRes.json();
-const shape = await shRes.json();
-const color = await colRes.json();
-const size = await szRes.json();
+  currentEstuary = estuary;
 
-abundance.points.forEach(pt=>{
+  mediumSelect.disabled = false;
+  layerSelect.disabled  = true;
 
-const popup=`
-<b>${pt.station_code}</b><br>
-Water Abundance: ${pt.water_abundance}<br>
-Sediment Abundance: ${pt.sediment_abundance}
-`;
+  markers.clearLayers();
 
-const marker=L.marker([pt.latitude,pt.longitude])
-.bindPopup(popup);
+  try {
 
-markers.addLayer(marker);
+    const [abRes, shRes, colRes, szRes] = await Promise.all([
+      fetch(`${API_BASE}/estuaries/${estuary}/abundance`),
+      fetch(`${API_BASE}/estuaries/${estuary}/shape`),
+      fetch(`${API_BASE}/estuaries/${estuary}/color`),
+      fetch(`${API_BASE}/estuaries/${estuary}/size`)
+    ]);
+
+    const abundance = await abRes.json();
+    const shape     = await shRes.json();
+    const color     = await colRes.json();
+    const size      = await szRes.json();
+
+    abundance.points.forEach(pt => {
+
+      const popup = `
+        <b>${pt.station_code}</b><br>
+        Water Abundance: ${pt.water_abundance}<br>
+        Sediment Abundance: ${pt.sediment_abundance}
+      `;
+
+      const marker = L.marker([pt.latitude, pt.longitude])
+        .bindPopup(popup);
+
+      markers.addLayer(marker);
+
+    });
+
+  } catch (err) {
+
+    console.error(err);
+    alert("Error loading estuary data.");
+
+  }
+
+}
+
+
+/* ================= MEDIUM SELECT ================= */
+
+mediumSelect.addEventListener("change", () => {
+
+  if (!mediumSelect.value) {
+    layerSelect.disabled = true;
+    return;
+  }
+
+  layerSelect.disabled = false;
 
 });
 
-}
-catch(err){
-console.error(err);
-alert("Error loading data");
-}
 
-}
+/* ================= LAYER SELECT ================= */
 
-/* ================= CHART PLACEHOLDER ================= */
+layerSelect.addEventListener("change", async () => {
 
-document.getElementById("mediumSelect").addEventListener("change",function(){
-document.getElementById("layerSelect").disabled=!this.value;
+  const layer  = layerSelect.value;
+  const medium = mediumSelect.value;
+
+  if (!layer || !medium || !currentEstuary) return;
+
+  chartContainer.style.display = "flex";
+
+  try {
+
+    const res = await fetch(`${API_BASE}/estuaries/${currentEstuary}/${layer}`);
+    const data = await res.json();
+
+    renderCharts(data, layer, medium);
+
+  } catch (err) {
+
+    console.error(err);
+    alert("Error loading chart data");
+
+  }
+
 });
+
+
+/* ================= CHARTS ================= */
+
+let barChart = null;
+let pieChart = null;
+
+function renderCharts(data, layer, medium) {
+
+  const barCanvas = document.getElementById("barCanvas");
+  const pieCanvas = document.getElementById("pieCanvas");
+
+  const labels = [];
+  const values = [];
+
+  data.data.forEach(item => {
+    labels.push(item.category);
+    values.push(item.value);
+  });
+
+  if (barChart) barChart.destroy();
+  if (pieChart) pieChart.destroy();
+
+  barChart = new Chart(barCanvas, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: `${layer} (${medium})`,
+        data: values
+      }]
+    },
+    options: {
+      responsive: true
+    }
+  });
+
+  pieChart = new Chart(pieCanvas, {
+    type: "pie",
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values
+      }]
+    }
+  });
+
+}
 
 </script>
-
 </body>
 </html>
-```
