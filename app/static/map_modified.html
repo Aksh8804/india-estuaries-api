@@ -243,8 +243,43 @@ button.logout {
 
 
 
-```html
 <script>
+// ===== AUTH CHECK (run immediately) =====
+const token = localStorage.getItem("access_token");
+if(token){
+  document.getElementById("logoutBtn").style.display = "inline-block";
+}  
+
+
+if (!token) {
+  // Not logged in → redirect immediately
+   window.location.href = "/static/login.html";
+}
+
+// ===== LOGOUT FUNCTION =====
+function logout() {
+  localStorage.removeItem("access_token");
+  window.location.href = "/static/login.html";
+}
+
+Chart.defaults.font.family = "Arial";
+Chart.defaults.font.size = 13;
+Chart.defaults.color = "#333";
+
+const API_BASE = "https://india-estuaries-api.onrender.com";
+
+const SIZE_KEYS = ["lt_1mm","mm_1_to_2_5","mm_2_5_to_5"];
+const SHAPE_KEYS = ["fiber","fragment","film","foam","pellet"];
+
+let COLOR_KEYS = [];
+
+let currentEstuary = "";
+let currentPoints = [];
+
+let barChart = null;
+let pieChart = null;
+
+
 
 /* ================= MAP ================= */
 
@@ -256,162 +291,981 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 const markers = L.layerGroup().addTo(map);
 
-const API_BASE = "https://india-estuaries-api.onrender.com";
-
-
-/* ================= UI REFERENCES ================= */
-
-const estuarySelect = document.getElementById("estuarySelect");
-const mediumSelect  = document.getElementById("mediumSelect");
-const layerSelect   = document.getElementById("layerSelect");
-
-const chartContainer = document.getElementById("chartContainer");
-
-let currentEstuary = null;
-
-
-/* ================= ESTUARY CHANGE ================= */
-
-estuarySelect.addEventListener("change", loadEstuary);
-
-async function loadEstuary() {
-
-  const estuary = estuarySelect.value;
-  if (!estuary) return;
-
-  currentEstuary = estuary;
-
-  mediumSelect.disabled = false;
-  layerSelect.disabled  = true;
-
-  markers.clearLayers();
-
-  try {
-
-    const [abRes, shRes, colRes, szRes] = await Promise.all([
-      fetch(`${API_BASE}/estuaries/${estuary}/abundance`),
-      fetch(`${API_BASE}/estuaries/${estuary}/shape`),
-      fetch(`${API_BASE}/estuaries/${estuary}/color`),
-      fetch(`${API_BASE}/estuaries/${estuary}/size`)
-    ]);
-
-    const abundance = await abRes.json();
-    const shape     = await shRes.json();
-    const color     = await colRes.json();
-    const size      = await szRes.json();
-
-    abundance.points.forEach(pt => {
-
-      const popup = `
-        <b>${pt.station_code}</b><br>
-        Water Abundance: ${pt.water_abundance}<br>
-        Sediment Abundance: ${pt.sediment_abundance}
-      `;
-
-      const marker = L.marker([pt.latitude, pt.longitude])
-        .bindPopup(popup);
-
-      markers.addLayer(marker);
-
-    });
-
-  } catch (err) {
-
-    console.error(err);
-    alert("Error loading estuary data.");
-
-  }
-
+function toggleMenu(){
+  const menu = document.getElementById("taskMenu");
+  menu.style.display = menu.style.display === "none" ? "block" : "none";
 }
-
-
-/* ================= MEDIUM SELECT ================= */
-
-mediumSelect.addEventListener("change", () => {
-
-  if (!mediumSelect.value) {
-    layerSelect.disabled = true;
+function formatObj(obj) {
+  if (!obj) return "N/A";
+  return Object.entries(obj)
+    .map(([k,v]) => `${formatKey(k)}: ${v}`)
+    .join(", ");
+}
+const CHART_COLORS = [
+  "#AEC6CF", // pastel blue
+  "#FFD1DC", // pastel pink
+  "#C1E1C1", // pastel green
+  "#FFFACD", // pastel yellow
+  "#FFB347", // pastel orange
+  "#B39EB5", // pastel purple
+  "#FF6961", // pastel red
+  "#77DD77", // pastel mint green
+  "#FDFD96", // pastel lemon
+  "#84B6F4"  // pastel sky blue
+];/* ================= LOAD ESTUARY ================= */
+document.getElementById("estuarySelect")
+.addEventListener("change", loadEstuary);
+async function loadEstuary(){
+  currentEstuary = this.value;
+document.getElementById("mediumSelect").disabled = false;
+document.getElementById("layerSelect").disabled = true;
+document.getElementById("mediumSelect").value = "";
+document.getElementById("layerSelect").value = "";
+if(barChart) barChart.destroy();
+if(pieChart) pieChart.destroy();
+  if(!currentEstuary) return;
+  markers.clearLayers();
+  currentPoints = [];
+  try{
+    const [abRes, shRes, colRes, szRes] = await Promise.all([
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/abundance`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  }),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/shape`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  }),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/color`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  }),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/size`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  })
+]);
+    const abundance = abRes.ok ? await abRes.json() : { points: [] };
+    const shape     = shRes.ok ? await shRes.json() : { points: [] };
+    const color     = colRes.ok ? await colRes.json() : { points: [] };
+    const size      = szRes.ok ? await szRes.json() : { points: [] };
+    if(!abundance.points || abundance.points.length === 0) {
+    alert("No data available for this estuary.");
     return;
-  }
-
-  layerSelect.disabled = false;
-
-});
-
-
-/* ================= LAYER SELECT ================= */
-
-layerSelect.addEventListener("change", async () => {
-
-  const layer  = layerSelect.value;
-  const medium = mediumSelect.value;
-
-  if (!layer || !medium || !currentEstuary) return;
-
-  chartContainer.style.display = "flex";
-
-  try {
-
-    const res = await fetch(`${API_BASE}/estuaries/${currentEstuary}/${layer}`);
-    const data = await res.json();
-
-    renderCharts(data, layer, medium);
-
-  } catch (err) {
-
+    }
+    COLOR_KEYS = color.points?.length
+      ? Object.keys(color.points[0].water)
+      : [];
+    currentPoints = abundance.points.map(pt => {
+      const shapePt = shape.points?.find(s => s.station_code === pt.station_code) || {};
+      const colorPt = color.points?.find(s => s.station_code === pt.station_code) || {};
+      const sizePt  = size.points?.find(s => s.station_code === pt.station_code) || {};
+      return {
+        ...pt,
+        shape: shapePt,
+        color: colorPt,
+        size: sizePt
+      };
+    });
+    /* ===== MARKERS ===== */
+    currentPoints.forEach(pt => {
+      const popup = `
+        <div style="max-height:300px; overflow-y:auto; font-size:13px;">
+          <b>${pt.station_code}</b><br><br>
+          <b>Abundance</b><br>
+          Water: ${pt.water_abundance}<br>
+          Sediment: ${pt.sediment_abundance}<br><br>
+          <b>Size (Water)</b><br>
+          ${formatObj(pt.size?.water)}<br><br>
+          <b>Size (Sediment)</b><br>
+          ${formatObj(pt.size?.sediment)}<br><br>
+          <b>Shape (Water)</b><br>
+          ${formatObj(pt.shape?.water)}<br><br>
+          <b>Shape (Sediment)</b><br>
+          ${formatObj(pt.shape?.sediment)}<br><br>
+          <b>Color (Water)</b><br>
+          ${formatObj(pt.color?.water)}<br><br>
+          <b>Color (Sediment)</b><br>
+          ${formatObj(pt.color?.sediment)}
+        </div>
+      `;
+      const marker = L.marker([pt.latitude, pt.longitude])
+        .bindPopup(popup, { maxWidth: 350 });
+      markers.addLayer(marker);  // 
+    });
+  }catch(err){
     console.error(err);
-    alert("Error loading chart data");
-
+    alert("Error loading data");
   }
-
-});
-
-
+}
+/* ================= FORMAT ================= */
+function formatObj(obj){
+  if(!obj) return "No data";
+  const keyMap = {
+    "lt_1mm": "< 1 mm",
+    "mm_1_to_2_5": "1 mm to 2.5 mm",
+    "mm_2_5_to_5": "2.5 mm to 5 mm"
+  };
+  return Object.entries(obj)
+    .map(([k,v]) => {
+      const formattedKey = keyMap[k] || k;
+      return `${formattedKey} : ${v}`;
+    })
+    .join("<br>");
+}
+function formatKey(key){
+  const keyMap = {
+    // Size
+    "lt_1mm": "< 1 mm",
+    "mm_1_to_2_5": "1 mm to 2.5 mm",
+    "mm_2_5_to_5": "2.5 mm to 5 mm",
+    // Shape
+    "fiber": "Fiber",
+    "fragment": "Fragment",
+    "film": "Film",
+    "foam": "Foam",
+    "pellet": "Pellet"
+  };
+  return keyMap[key] || key;
+}
 /* ================= CHARTS ================= */
+document.getElementById("layerSelect")
+.addEventListener("change", drawCharts);
+document.getElementById("mediumSelect")
+.addEventListener("change", function(){
+  const layerSelect = document.getElementById("layerSelect");
+  if(this.value){
+    layerSelect.disabled = false;
+  } else {
+    layerSelect.disabled = true;
+  }
+  if(barChart) barChart.destroy();
+  if(pieChart) pieChart.destroy();
+});
+function drawCharts(){
+  const layer = document.getElementById("layerSelect").value;
+  const medium = document.getElementById("mediumSelect").value;
+  if(!currentEstuary || !medium || !layer || currentPoints.length === 0){
+  return;
+}
+  document.getElementById("chartContainer").style.display="block";
+  if(barChart) barChart.destroy();
+  if(pieChart) pieChart.destroy();
+  if(layer === "abundance"){
+    drawAbundance();
+  }
+  else if(layer === "size"){
+    drawStacked("size", SIZE_KEYS);
+  }
+  else if(layer === "shape"){
+    drawStacked("shape", SHAPE_KEYS);
+  }
+  else if(layer === "color"){
+    drawStacked("color", COLOR_KEYS);
+  }
+}
+function drawAbundance(){
+  const medium = document.getElementById("mediumSelect").value;
+  const barCtx = document.getElementById("barCanvas");
+  const pieCtx = document.getElementById("pieCanvas");
+  const values = currentPoints.map(p => p[`${medium}_abundance`] || 0);
 
-let barChart = null;
-let pieChart = null;
-
-function renderCharts(data, layer, medium) {
-
-  const barCanvas = document.getElementById("barCanvas");
-  const pieCanvas = document.getElementById("pieCanvas");
-
-  const labels = [];
-  const values = [];
-
-  data.data.forEach(item => {
-    labels.push(item.category);
-    values.push(item.value);
-  });
-
-  if (barChart) barChart.destroy();
-  if (pieChart) pieChart.destroy();
-
-  barChart = new Chart(barCanvas, {
-    type: "bar",
-    data: {
-      labels: labels,
-      datasets: [{
-        label: `${layer} (${medium})`,
+barChart = new Chart(barCtx,{
+  type:"bar",
+  data:{
+    labels: currentPoints.map(p=>p.station_code),
+    datasets:[{
+  data: values,
+  backgroundColor: CHART_COLORS.slice(0, values.length)
+}]  },
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,   //
+    plugins:{
+      title:{
+        display:true,
+        text: medium.toUpperCase() + " Abundance by Station"
+      },
+      legend:{ display:false }
+    },
+    scales:{
+      y:{
+        beginAtZero:true,
+        title:{
+          display:true,
+          text:"Abundance"
+        }
+      }
+    }
+  }
+});
+  pieChart = new Chart(pieCtx,{
+    type:"pie",
+    data:{
+      labels: currentPoints.map(p=>p.station_code),
+      datasets:[{
         data: values
       }]
     },
-    options: {
-      responsive: true
+    options:{
+      responsive:true,
+      maintainAspectRatio: true,
+      plugins:{
+        title:{
+          display:true,
+          text:"Distribution Across Stations"
+        }
+      }
     }
   });
+}
+function drawStacked(type, keys){
+  const medium = document.getElementById("mediumSelect").value;
+  const barCtx = document.getElementById("barCanvas");
+  const pieCtx = document.getElementById("pieCanvas");
+  barChart = new Chart(barCtx,{
+    type:"bar",
+    data:{
+      labels: currentPoints.map(p=>p.station_code),
+      datasets: keys.map((k, index) => ({
+  label: formatKey(k),
+  data: currentPoints.map(p =>
+    (p[type]?.[medium]?.[k] || 0)
+  ),
+  borderWidth: 1,
+  backgroundColor: CHART_COLORS[index % CHART_COLORS.length] // unique color
+}))
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio: false,
+      plugins:{
+        title:{
+          display:true,
+          text: `${type.toUpperCase()} (${medium.toUpperCase()})`
+        }
+      },
+      scales:{
+        x:{ stacked:true },
+        y:{ stacked:true, beginAtZero:true }
+      }
+    }
+  })
+  // ===== Pie Chart (Total Distribution) =====
+  const totals = {};
+  keys.forEach(k => totals[k] = 0);
 
-  pieChart = new Chart(pieCanvas, {
-    type: "pie",
-    data: {
-      labels: labels,
-      datasets: [{
-        data: values
+  currentPoints.forEach(p=>{
+    keys.forEach(k=>{
+      totals[k] += (p[type]?.[medium]?.[k] || 0);
+    });
+  });
+  pieChart = new Chart(pieCtx,{
+    type:"pie",
+    data:{
+      labels: keys.map(k => formatKey(k)),
+      datasets:[{
+        data: keys.map(k=>totals[k])
       }]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        title:{
+          display:true,
+          text:`Total ${type.toUpperCase()} Distribution`
+        }
+      }
+    }
+  });
+}
+// ===== GET ALL ESTUARY DATA =====
+async function getAllEstuaryData(){
+  const token = localStorage.getItem("access_token");
+  const estuaries = ["Palar","Kollidam","Pulicat"];
+  let allPoints = [];
+  for(const est of estuaries){
+    const [abRes, shRes, colRes, szRes] = await Promise.all([
+      fetch(`${API_BASE}/estuaries/${est}/abundance`, { headers:{ "Authorization":`Bearer ${token}` }}),
+      fetch(`${API_BASE}/estuaries/${est}/shape`,     { headers:{ "Authorization":`Bearer ${token}` }}),
+      fetch(`${API_BASE}/estuaries/${est}/color`,     { headers:{ "Authorization":`Bearer ${token}` }}),
+      fetch(`${API_BASE}/estuaries/${est}/size`,      { headers:{ "Authorization":`Bearer ${token}` }})
+    ]);
+    const abundance = abRes.ok ? await abRes.json() : { points: [] };
+    const shape     = shRes.ok ? await shRes.json() : { points: [] };
+    const color     = colRes.ok ? await colRes.json() : { points: [] };
+    const size      = szRes.ok ? await szRes.json() : { points: [] };
+    abundance.points.forEach(pt=>{
+      const shapePt = shape.points?.find(s=>s.station_code===pt.station_code) || {};
+      const colorPt = color.points?.find(s=>s.station_code===pt.station_code) || {};
+      const sizePt  = size.points?.find(s=>s.station_code===pt.station_code) || {};
+      allPoints.push({
+        ...pt,
+        estuary: est,
+        shape: shapePt,
+        color: colorPt,
+        size: sizePt
+      });
+    });
+  }
+  return allPoints;
+}
+// ===== HIGHEST VALUES =====
+async function showHighest(){
+  const allPoints = await getAllEstuaryData();
+  if(allPoints.length===0){ alert("No data"); return; }
+  // Abundance
+  let highestAb = allPoints[0];
+  let highestAbValue = (highestAb.water_abundance||0) + (highestAb.sediment_abundance||0);
+  allPoints.forEach(p=>{
+    const total = (p.water_abundance||0) + (p.sediment_abundance||0);
+    if(total > highestAbValue){ highestAbValue=total; highestAb=p; }
+  });
+  // Color
+  let highestColor = {key:null, value:0, station:null, estuary:null};
+  allPoints.forEach(p=>{
+    ["water","sediment"].forEach(med=>{
+      for(const [col,val] of Object.entries(p.color?.[med]||{})){
+        if(val>highestColor.value){
+          highestColor={ key:col, value:val, station:p.station_code, estuary:p.estuary };
+        }
+      }
+    });
+  });
+  // Size
+  let highestSize = {key:null, value:0, station:null, estuary:null};
+  allPoints.forEach(p=>{
+    ["water","sediment"].forEach(med=>{
+      for(const [sz,val] of Object.entries(p.size?.[med]||{})){
+        if(val>highestSize.value){
+          highestSize={ key:sz, value:val, station:p.station_code, estuary:p.estuary };
+        }
+      }
+    });
+  });
+  // Shape
+  let highestShape = {key:null, value:0, station:null, estuary:null};
+  allPoints.forEach(p=>{
+    ["water","sediment"].forEach(med=>{
+      for(const [sh,val] of Object.entries(p.shape?.[med]||{})){
+        if(val>highestShape.value){
+          highestShape={ key:sh, value:val, station:p.station_code, estuary:p.estuary };
+        }
+      }
+    });
+  });
+  // Display
+  document.getElementById("taskResult").innerHTML=`
+    <h3>Highest Values Across All Estuaries</h3>
+    <b>Abundance:</b> ${highestAbValue} at ${highestAb.station_code} (${highestAb.estuary})<br>
+    <b>Color:</b> ${highestColor.key} (${highestColor.value}) at ${highestColor.station} (${highestColor.estuary})<br>
+    <b>Size:</b> ${formatKey(highestSize.key)} (${highestSize.value}) at ${highestSize.station} (${highestSize.estuary})<br>
+    <b>Shape:</b> ${highestShape.key} (${highestShape.value}) at ${highestShape.station} 
+  `;
+}
+// ===== LOWEST VALUES =====
+async function showLowest(){
+  const allPoints = await getAllEstuaryData();
+  if(allPoints.length===0){ alert("No data"); return; }
+  // Abundance
+  let lowestAb = allPoints[0];
+  let lowestAbValue = (lowestAb.water_abundance||0) + (lowestAb.sediment_abundance||0);
+  allPoints.forEach(p=>{
+    const total = (p.water_abundance||0) + (p.sediment_abundance||0);
+    if(total < lowestAbValue){ lowestAbValue=total; lowestAb=p; }
+  });
+  // Color
+  let lowestColor = {key:null, value:Infinity, station:null, estuary:null};
+  allPoints.forEach(p=>{
+    ["water","sediment"].forEach(med=>{
+      for(const [col,val] of Object.entries(p.color?.[med]||{})){
+        if(val<lowestColor.value){
+          lowestColor={ key:col, value:val, station:p.station_code, estuary:p.estuary };
+        }
+      }
+    });
+  });
+  // Size
+  let lowestSize = {key:null, value:Infinity, station:null, estuary:null};
+  allPoints.forEach(p=>{
+    ["water","sediment"].forEach(med=>{
+      for(const [sz,val] of Object.entries(p.size?.[med]||{})){
+        if(val<lowestSize.value){
+          lowestSize={ key:sz, value:val, station:p.station_code, estuary:p.estuary };
+        }
+      }
+    });
+  });
+  // Shape
+  let lowestShape = {key:null, value:Infinity, station:null, estuary:null};
+  allPoints.forEach(p=>{
+    ["water","sediment"].forEach(med=>{
+      for(const [sh,val] of Object.entries(p.shape?.[med]||{})){
+        if(val<lowestShape.value){
+          lowestShape={ key:sh, value:val, station:p.station_code, estuary:p.estuary };
+        }
+      }
+    });
+  });
+  // Display
+  document.getElementById("taskResult").innerHTML=`
+    <h3>Lowest Values Across All Estuaries</h3>
+    <b>Abundance:</b> ${lowestAbValue} at ${lowestAb.station_code} (${lowestAb.estuary})<br>
+    <b>Color:</b> ${lowestColor.key} (${lowestColor.value}) at ${lowestColor.station} (${lowestColor.estuary})<br>
+    <b>Size:</b> ${formatKey(lowestSize.key)} (${lowestSize.value}) at ${lowestSize.station} (${lowestSize.estuary})<br>
+    <b>Shape:</b> ${lowestShape.key} (${lowestShape.value}) at ${lowestShape.station} (${lowestShape.estuary})
+  `;
+}
+
+
+// Toggle main menu
+function toggleMainMenu() {
+  const menu = document.getElementById("mainMenu");
+  menu.style.display = menu.style.display === "none" ? "block" : "none";
+}
+
+// Highest Values Panel
+async function showHighestPanel() {
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+  const allPoints = await getAllEstuaryData();
+  if(allPoints.length === 0){ panel.innerHTML="No data"; return; }
+
+  // Highest Abundance
+  const highestAb = {
+    sediment: allPoints.reduce((a,b)=> (b.sediment_abundance||0) > (a.sediment_abundance||0)?b:a),
+    water:    allPoints.reduce((a,b)=> (b.water_abundance||0) > (a.water_abundance||0)?b:a)
+  };
+
+  // Highest Color, Size, Shape
+  const highest = { color:{}, size:{}, shape:{} };
+  ["sediment","water"].forEach(med=>{
+    highest.color[med] = { key:null, value:0, station:null, estuary:null };
+    highest.size[med]  = { key:null, value:0, station:null, estuary:null };
+    highest.shape[med] = { key:null, value:0, station:null, estuary:null };
+  });
+
+  allPoints.forEach(p=>{
+    ["sediment","water"].forEach(med=>{
+      for(const [col,val] of Object.entries(p.color?.[med]||{})){
+        if(val > highest.color[med].value) highest.color[med] = { key:col, value:val, station:p.station_code, estuary:p.estuary };
+      }
+      for(const [sz,val] of Object.entries(p.size?.[med]||{})){
+        if(val > highest.size[med].value) highest.size[med] = { key:sz, value:val, station:p.station_code, estuary:p.estuary };
+      }
+      for(const [sh,val] of Object.entries(p.shape?.[med]||{})){
+        if(val > highest.shape[med].value) highest.shape[med] = { key:sh, value:val, station:p.station_code, estuary:p.estuary };
+      }
+    });
+  });
+
+  panel.innerHTML = `
+    <h3>Highest Values Across All Estuaries</h3>
+    <b>Abundance (Sediment):</b> ${highestAb.sediment.sediment_abundance} at ${highestAb.sediment.station_code} (${highestAb.sediment.estuary})<br>
+    <b>Color (Sediment):</b> ${highest.color.sediment.key} (${highest.color.sediment.value}) at ${highest.color.sediment.station} (${highest.color.sediment.estuary})<br>
+    <b>Size (Sediment):</b> ${formatKey(highest.size.sediment.key)} (${highest.size.sediment.value}) at ${highest.size.sediment.station} (${highest.size.sediment.estuary})<br>
+    <b>Shape (Sediment):</b> ${highest.shape.sediment.key} (${highest.shape.sediment.value}) at ${highest.shape.sediment.station} (${highest.shape.sediment.estuary})<br>
+    <b>Abundance (Water):</b> ${highestAb.water.water_abundance} at ${highestAb.water.station_code} (${highestAb.water.estuary})<br>
+    <b>Color (Water):</b> ${highest.color.water.key} (${highest.color.water.value}) at ${highest.color.water.station} (${highest.color.water.estuary})<br>
+    <b>Size (Water):</b> ${formatKey(highest.size.water.key)} (${highest.size.water.value}) at ${highest.size.water.station} (${highest.size.water.estuary})<br>
+    <b>Shape (Water):</b> ${highest.shape.water.key} (${highest.shape.water.value}) at ${highest.shape.water.station} (${highest.shape.water.estuary})
+  `;
+}
+function showHighestOptions(){
+  const sub = document.getElementById("analysisSubOptions");
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "";
+
+  sub.innerHTML = `
+    <label>Select Category:</label>
+    <select id="highestCategory">
+      <option value="">-- Choose --</option>
+      <option value="microplastic">Microplastics</option>
+      <option value="others">Others</option>
+    </select>
+  `;
+
+  document.getElementById("highestCategory").addEventListener("change", function(){
+    if(this.value === "microplastic"){
+      sub.innerHTML += `
+        <br><label>Select Medium:</label>
+        <select id="highestMedium">
+          <option value="">-- Choose --</option>
+          <option value="sediment">Sediment</option>
+          <option value="water">Water</option>
+        </select>
+      `;
+
+      document.getElementById("highestMedium").addEventListener("change", function(){
+        if(this.value){
+          showHighestMicroplastic(this.value);
+        }
+      });
+    }
+    else if(this.value === "others"){
+      showHighestPanel(); // existing function
+    }
+  });
+}
+
+async function showHighestMicroplastic(medium){
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+
+  const allPoints = await getAllEstuaryData();
+
+  let highest = {
+    abundance:{ value:0, station:null, estuary:null },
+    color:{ key:null, value:0, station:null, estuary:null },
+    size:{ key:null, value:0, station:null, estuary:null },
+    shape:{ key:null, value:0, station:null, estuary:null }
+  };
+
+  allPoints.forEach(p=>{
+    const ab = p[`${medium}_abundance`] || 0;
+    if(ab > highest.abundance.value){
+      highest.abundance = { value:ab, station:p.station_code, estuary:p.estuary };
+    }
+
+    for(const [k,v] of Object.entries(p.color?.[medium]||{})){
+      if(v > highest.color.value){
+        highest.color = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+
+    for(const [k,v] of Object.entries(p.size?.[medium]||{})){
+      if(v > highest.size.value){
+        highest.size = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+
+    for(const [k,v] of Object.entries(p.shape?.[medium]||{})){
+      if(v > highest.shape.value){
+        highest.shape = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
     }
   });
 
+  panel.innerHTML = `
+    <h3>Highest Microplastics (${medium.toUpperCase()})</h3>
+    <b>Abundance:</b> ${highest.abundance.value} at ${highest.abundance.station} (${highest.abundance.estuary})<br>
+    <b>Color:</b> ${highest.color.key} (${highest.color.value}) at ${highest.color.station} (${highest.color.estuary})<br>
+    <b>Size:</b> ${formatKey(highest.size.key)} (${highest.size.value}) at ${highest.size.station} (${highest.size.estuary})<br>
+    <b>Shape:</b> ${highest.shape.key} (${highest.shape.value}) at ${highest.shape.station} (${highest.shape.estuary})
+  `;
+}
+// Lowest Values Panel
+  
+async function showLowestPanel() {
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+  const allPoints = await getAllEstuaryData();
+  if(allPoints.length === 0){ panel.innerHTML="No data"; return; }
+
+  // Lowest Abundance
+  const lowestAb = {
+    sediment: allPoints.reduce((a,b)=> (b.sediment_abundance||0) < (a.sediment_abundance||0)?b:a),
+    water:    allPoints.reduce((a,b)=> (b.water_abundance||0) < (a.water_abundance||0)?b:a)
+  };
+
+  // Lowest Color, Size, Shape
+  const lowest = { color:{}, size:{}, shape:{} };
+  ["sediment","water"].forEach(med=>{
+    lowest.color[med] = { key:null, value:Infinity, station:null, estuary:null };
+    lowest.size[med]  = { key:null, value:Infinity, station:null, estuary:null };
+    lowest.shape[med] = { key:null, value:Infinity, station:null, estuary:null };
+  });
+
+  allPoints.forEach(p=>{
+    ["sediment","water"].forEach(med=>{
+      for(const [col,val] of Object.entries(p.color?.[med]||{})){
+        if(val < lowest.color[med].value) lowest.color[med] = { key:col, value:val, station:p.station_code, estuary:p.estuary };
+      }
+      for(const [sz,val] of Object.entries(p.size?.[med]||{})){
+        if(val < lowest.size[med].value) lowest.size[med] = { key:sz, value:val, station:p.station_code, estuary:p.estuary };
+      }
+      for(const [sh,val] of Object.entries(p.shape?.[med]||{})){
+        if(val < lowest.shape[med].value) lowest.shape[med] = { key:sh, value:val, station:p.station_code, estuary:p.estuary };
+      }
+    });
+  });
+
+  panel.innerHTML = `
+    <h3>Lowest Values Across All Estuaries</h3>
+    <b>Abundance (Sediment):</b> ${lowestAb.sediment.sediment_abundance} at ${lowestAb.sediment.station_code} (${lowestAb.sediment.estuary})<br>
+    <b>Color (Sediment):</b> ${lowest.color.sediment.key} (${lowest.color.sediment.value}) at ${lowest.color.sediment.station} (${lowest.color.sediment.estuary})<br>
+    <b>Size (Sediment):</b> ${formatKey(lowest.size.sediment.key)} (${lowest.size.sediment.value}) at ${lowest.size.sediment.station} (${lowest.size.sediment.estuary})<br>
+    <b>Shape (Sediment):</b> ${lowest.shape.sediment.key} (${lowest.shape.sediment.value}) at ${lowest.shape.sediment.station} (${lowest.shape.sediment.estuary})<br>
+    <b>Abundance (Water):</b> ${lowestAb.water.water_abundance} at ${lowestAb.water.station_code} (${lowestAb.water.estuary})<br>
+    <b>Color (Water):</b> ${lowest.color.water.key} (${lowest.color.water.value}) at ${lowest.color.water.station} (${lowest.color.water.estuary})<br>
+    <b>Size (Water):</b> ${formatKey(lowest.size.water.key)} (${lowest.size.water.value}) at ${lowest.size.water.station} (${lowest.size.water.estuary})<br>
+    <b>Shape (Water):</b> ${lowest.shape.water.key} (${lowest.shape.water.value}) at ${lowest.shape.water.station} (${lowest.shape.water.estuary})
+  `;
+}
+
+function showLowestOptions(){
+  const sub = document.getElementById("analysisSubOptions");
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "";
+
+  sub.innerHTML = `
+    <label>Select Category:</label>
+    <select id="lowestCategory">
+      <option value="">-- Choose --</option>
+      <option value="microplastic">Microplastics</option>
+      <option value="others">Others</option>
+    </select>
+  `;
+
+  document.getElementById("lowestCategory").addEventListener("change", function(){
+    if(this.value === "microplastic"){
+      sub.innerHTML += `
+        <br><label>Select Medium:</label>
+        <select id="lowestMedium">
+          <option value="">-- Choose --</option>
+          <option value="sediment">Sediment</option>
+          <option value="water">Water</option>
+        </select>
+      `;
+
+      document.getElementById("lowestMedium").addEventListener("change", function(){
+        if(this.value){
+          showLowestMicroplastic(this.value);
+        }
+      });
+    }
+    else if(this.value === "others"){
+      showLowestPanel();
+    }
+  });
+}
+
+async function showLowestMicroplastic(medium){
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+
+  const allPoints = await getAllEstuaryData();
+
+  let lowest = {
+    abundance:{ value:Infinity, station:null, estuary:null },
+    color:{ key:null, value:Infinity, station:null, estuary:null },
+    size:{ key:null, value:Infinity, station:null, estuary:null },
+    shape:{ key:null, value:Infinity, station:null, estuary:null }
+  };
+
+  allPoints.forEach(p=>{
+    const ab = p[`${medium}_abundance`] || 0;
+    if(ab < lowest.abundance.value){
+      lowest.abundance = { value:ab, station:p.station_code, estuary:p.estuary };
+    }
+
+    for(const [k,v] of Object.entries(p.color?.[medium]||{})){
+      if(v < lowest.color.value){
+        lowest.color = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+
+    for(const [k,v] of Object.entries(p.size?.[medium]||{})){
+      if(v < lowest.size.value){
+        lowest.size = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+
+    for(const [k,v] of Object.entries(p.shape?.[medium]||{})){
+      if(v < lowest.shape.value){
+        lowest.shape = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+  });
+
+  panel.innerHTML = `
+    <h3>Lowest Microplastics (${medium.toUpperCase()})</h3>
+    <b>Abundance:</b> ${lowest.abundance.value} at ${lowest.abundance.station} (${lowest.abundance.estuary})<br>
+    <b>Color:</b> ${lowest.color.key} (${lowest.color.value}) at ${lowest.color.station} (${lowest.color.estuary})<br>
+    <b>Size:</b> ${formatKey(lowest.size.key)} (${lowest.size.value}) at ${lowest.size.station} (${lowest.size.estuary})<br>
+    <b>Shape:</b> ${lowest.shape.key} (${lowest.shape.value}) at ${lowest.shape.station} (${lowest.shape.estuary})
+  `;
+}
+
+// Ranks by State
+function showStateMenu(){
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = `
+    <h3>Ranks Based On State</h3>
+    <button onclick="showStateEstuaries('west')">West Coast</button>
+    <button onclick="showStateEstuaries('east')">East Coast</button>
+  `;
+}
+
+function showStateEstuaries(coast){
+  const panel = document.getElementById("dynamicPanel");
+  let states = coast==='west' ? ["Gujarat","Maharashtra","Goa","Karnataka","Kerala"] : ["West Bengal","Odisha","Andhra Pradesh","Tamil Nadu"];
+  panel.innerHTML = states.map(st=>`<button onclick="showStateRanks('${st}')">${st}</button>`).join("<br>");
+}
+
+async function showStateRanks(state){
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading ranks...";
+
+  const allPoints = await getAllEstuaryData();
+  const statePoints = allPoints.filter(p => p.state === state);
+
+  if(statePoints.length === 0){
+    panel.innerHTML = `No data available for ${state}`;
+    return;
+  }
+
+  const mediums = ["sediment","water"];
+  const layers  = ["abundance","color","shape","size"];
+
+  let html = `<h3>Ranks for ${state}</h3>`;
+
+  for(const med of mediums){
+    html += `<h4>${med.charAt(0).toUpperCase() + med.slice(1)}</h4>`;
+
+    // ===== Abundance Table =====
+    const abUnit = med === "sediment" ? "Abundance (per 50 g)" : "Abundance (per cubic meter)";
+    html += `<table border="1" cellpadding="6" cellspacing="0">
+       <tr><th>Station</th><th>Estuary</th><th>${abUnit}</th></tr>`;
+    
+
+
+const sortedAb = statePoints.slice().sort((a,b) => 
+      ((b[`${med}_abundance`]||0) - (a[`${med}_abundance`]||0))
+    );
+    sortedAb.forEach(p=>{
+      html += `<tr>
+        <td>${p.station_code}</td>
+        <td>${p.estuary}</td>
+        <td>${p[`${med}_abundance`] || 0}</td>
+      </tr>`;
+    });
+    html += `</table><br>`;
+
+    // ===== Color Table =====
+    html += `<table border="1" cellpadding="6" cellspacing="0">
+      <tr><th>Color</th><th>Total Count</th></tr>`;
+    const colorSum = {};
+    statePoints.forEach(p=>{
+      const colors = p.color?.[med] || {};
+      for(const [k,v] of Object.entries(colors)){
+        colorSum[k] = (colorSum[k]||0) + v;
+      }
+    });
+    Object.entries(colorSum).sort((a,b)=>b[1]-a[1])
+      .forEach(([k,v])=>{
+        html += `<tr><td>${k}</td><td>${v}</td></tr>`;
+      });
+    html += `</table><br>`;
+
+    // ===== Shape Table =====
+    html += `<table border="1" cellpadding="6" cellspacing="0">
+      <tr><th>Shape</th><th>Total Count</th></tr>`;
+    const shapeSum = {};
+    statePoints.forEach(p=>{
+      const shapes = p.shape?.[med] || {};
+      for(const [k,v] of Object.entries(shapes)){
+        shapeSum[k] = (shapeSum[k]||0) + v;
+      }
+    });
+    Object.entries(shapeSum).sort((a,b)=>b[1]-a[1])
+      .forEach(([k,v])=>{
+        html += `<tr><td>${formatKey(k)}</td><td>${v}</td></tr>`;
+      });
+    html += `</table><br>`;
+
+    // ===== Size Table =====
+    html += `<table border="1" cellpadding="6" cellspacing="0">
+      <tr><th>Size</th><th>Total Count</th></tr>`;
+    const sizeSum = {};
+    statePoints.forEach(p=>{
+      const sizes = p.size?.[med] || {};
+      for(const [k,v] of Object.entries(sizes)){
+        sizeSum[k] = (sizeSum[k]||0) + v;
+      }
+    });
+    Object.entries(sizeSum).sort((a,b)=>b[1]-a[1])
+      .forEach(([k,v])=>{
+        html += `<tr><td>${formatKey(k)}</td><td>${v}</td></tr>`;
+      });
+    html += `</table><br>`;
+  }
+
+  panel.innerHTML = html;
+}
+// Ranks by Estuary Menu
+document.getElementById("taskResult").innerHTML = "";
+function showEstuaryMenu() {
+  const panel = document.getElementById("dynamicPanel");
+  const estuaries = ["Palar", "Kollidam", "Pulicat"];
+  panel.innerHTML = `<h3>Ranks Based On Estuaries</h3>` +
+    estuaries.map(e => 
+      `<button style="margin:5px 0;" onclick="showEstuaryRanks('${e}')">${e}</button>`
+    ).join("<br>");
+}
+
+
+// Ranks by Estuary
+async function showEstuaryRanks(estuary) {
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading ranks...";
+
+  const allPoints = await getAllEstuaryData();
+  const estuaryPoints = allPoints.filter(p => p.estuary === estuary);
+
+  if (estuaryPoints.length === 0) {
+    panel.innerHTML = `No data available for ${estuary}`;
+    return;
+  }
+
+  const mediums = ["sediment","water"];
+  const layers  = ["abundance","color","shape","size"];
+  
+  let html = `<h3>Ranks for ${estuary}</h3>`;
+
+  mediums.forEach(med => {
+    html += `<h4>${med.charAt(0).toUpperCase() + med.slice(1)}</h4>`;
+
+    // ABUNDANCE
+    html += `<b>Abundance:</b><br>`;
+
+    const sortedAb = estuaryPoints.slice().sort((a,b)=> (b[`${med}_abundance`]||0) - (a[`${med}_abundance`]||0));
+    html += `<table border="1" cellpadding="5" style="border-collapse:collapse; margin-bottom:10px;">
+      <tr><th>Rank</th><th>Station</th><th>Value</th></tr>
+      ${sortedAb.map((p,i)=>`<tr><td>${i+1}</td><td>${p.station_code}</td><td>${p[`${med}_abundance`]}</td></tr>`).join("")}
+    </table>`;
+
+    // COLOR
+    html += `<b>Color:</b><br>`;
+    const colorSum = {};
+    estuaryPoints.forEach(p => {
+      const colors = p.color?.[med] || {};
+      for(const [k,v] of Object.entries(colors)){
+        colorSum[k] = (colorSum[k] || 0) + v;
+      }
+    });
+    const sortedColor = Object.entries(colorSum).sort((a,b)=> b[1]-a[1]);
+    html += `<table border="1" cellpadding="5" style="border-collapse:collapse; margin-bottom:10px;">
+      <tr><th>Rank</th><th>Color</th><th>Total</th></tr>
+      ${sortedColor.map(([k,v],i)=>`<tr><td>${i+1}</td><td>${k}</td><td>${v}</td></tr>`).join("")}
+    </table>`;
+
+    // SHAPE
+    html += `<b>Shape:</b><br>`;
+    const shapeSum = {};
+    estuaryPoints.forEach(p=>{
+      const shapes = p.shape?.[med] || {};
+      for(const [k,v] of Object.entries(shapes)){
+        shapeSum[k] = (shapeSum[k]||0) + v;
+      }
+    });
+    const sortedShape = Object.entries(shapeSum).sort((a,b)=>b[1]-a[1]);
+    html += `<table border="1" cellpadding="5" style="border-collapse:collapse; margin-bottom:10px;">
+      <tr><th>Rank</th><th>Shape</th><th>Total</th></tr>
+      ${sortedShape.map(([k,v],i)=>`<tr><td>${i+1}</td><td>${formatKey(k)}</td><td>${v}</td></tr>`).join("")}
+    </table>`;
+
+    // SIZE
+    html += `<b>Size:</b><br>`;
+    const sizeSum = {};
+    estuaryPoints.forEach(p=>{
+      const sizes = p.size?.[med] || {};
+      for(const [k,v] of Object.entries(sizes)){
+        sizeSum[k] = (sizeSum[k]||0) + v;
+      }
+    });
+    const sortedSize = Object.entries(sizeSum).sort((a,b)=>b[1]-a[1]);
+    html += `<table border="1" cellpadding="5" style="border-collapse:collapse; margin-bottom:20px;">
+      <tr><th>Rank</th><th>Size</th><th>Total</th></tr>
+      ${sortedSize.map(([k,v],i)=>`<tr><td>${i+1}</td><td>${formatKey(k)}</td><td>${v}</td></tr>`).join("")}
+    </table>`;
+  });
+
+  panel.innerHTML = html;
+}/* ================= DARK MODE ================= */
+const themeToggle = document.getElementById("themeToggle");
+let darkMode = false;
+themeToggle.addEventListener("click", () => {
+  darkMode = !darkMode;
+  if(darkMode){
+    themeToggle.textContent = "☀️";
+
+    Chart.defaults.color = "#f1f1f1";
+    document.documentElement.style.setProperty('--bg-color', '#2a2a2a');
+    document.documentElement.style.setProperty('--text-color', '#eee');
+    document.documentElement.style.setProperty('--header-bg', '#001a3d'); // dark blue
+    document.documentElement.style.setProperty('--controls-bg', '#333333');
+    document.documentElement.style.setProperty('--popup-bg', '#2a2a2a');
+    document.documentElement.style.setProperty('--dropdown-bg', '#222');
+    Chart.defaults.color = "#f1f1f1";
+  } else {
+    themeToggle.textContent = "🌙";
+    document.documentElement.style.setProperty('--bg-color', '#ffffff');
+    document.documentElement.style.setProperty('--text-color', '#111');
+    document.documentElement.style.setProperty('--header-bg', '#001a3d'); // dark blue
+    document.documentElement.style.setProperty('--controls-bg', '#e8e8e8');
+    document.documentElement.style.setProperty('--popup-bg', '#ffffff');
+    document.documentElement.style.setProperty('--dropdown-bg', '#ffffff');
+    Chart.defaults.color = "#333";
+  }
+});
+
+
+
+document.getElementById("analysisType").addEventListener("change", function(){
+  const value = this.value;
+  const sub = document.getElementById("analysisSubOptions");
+  const panel = document.getElementById("dynamicPanel");
+
+  sub.innerHTML = "";
+  panel.innerHTML = "";
+
+if(value === "highest"){
+  showHighestOptions();
+}
+else if(value === "lowest"){
+  showLowestOptions();
+}
+  else if(value === "state"){
+    sub.innerHTML = `
+      <label>Select State:</label>
+      <select id="stateSelect">
+        <option value="">-- Choose State --</option>
+        <option value="Tamil Nadu">Tamil Nadu</option>
+        <option value="Andhra Pradesh">Andhra Pradesh</option>
+        <option value="Odisha">Odisha</option>
+        <option value="West Bengal">West Bengal</option>
+        <option value="Kerala">Kerala</option>
+        <option value="Karnataka">Karnataka</option>
+        <option value="Goa">Goa</option>
+        <option value="Maharashtra">Maharashtra</option>
+        <option value="Gujarat">Gujarat</option>
+      </select>
+    `;
+
+    document.getElementById("stateSelect").addEventListener("change", function(){
+      if(this.value){
+        showStateRanks(this.value);
+      }
+    });
+  }
+  else if(value === "estuary"){
+    sub.innerHTML = `
+      <label>Select Estuary:</label>
+      <select id="estuaryRankSelect">
+        <option value="">-- Choose Estuary --</option>
+        <option value="Palar">Palar</option>
+        <option value="Kollidam">Kollidam</option>
+        <option value="Pulicat">Pulicat</option>
+      </select>
+    `;
+
+    document.getElementById("estuaryRankSelect").addEventListener("change", function(){
+      if(this.value){
+        showEstuaryRanks(this.value);
+      }
+    });
+  }
+});
+
+function formatKey(key){
+    return key.replace(/_/g, " ").toUpperCase();
 }
 
 </script>
