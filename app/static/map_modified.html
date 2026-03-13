@@ -253,13 +253,13 @@ if(token){
 
 if (!token) {
   // Not logged in → redirect immediately
-   window.location.href = "/static/login.html";
+   window.location.href = "login.html";
 }
 
 // ===== LOGOUT FUNCTION =====
 function logout() {
   localStorage.removeItem("access_token");
-  window.location.href = "/static/login.html";
+  window.location.href = "login.html";
 }
 
 Chart.defaults.font.family = "Arial";
