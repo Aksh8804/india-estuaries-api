@@ -1,0 +1,390 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>State Ranking - India Estuary Microplastic Viewer</title>
+
+<style>
+
+body{
+font-family:Arial,sans-serif;
+margin:0;
+background:#f4f6fa;
+}
+
+header{
+background:#001a3d;
+color:white;
+padding:15px;
+text-align:center;
+}
+
+.container{
+padding:20px;
+}
+
+button{
+padding:8px 14px;
+margin:5px;
+cursor:pointer;
+border:none;
+background:#023;
+color:white;
+border-radius:4px;
+}
+
+button:hover{
+background:#035;
+}
+
+table{
+border-collapse:collapse;
+width:100%;
+margin-top:10px;
+margin-bottom:30px;
+background:white;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:6px 10px;
+text-align:center;
+}
+
+th{
+background:#eef2f7;
+}
+
+h3{
+color:#001a3d;
+}
+
+h4{
+margin-top:25px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>Ranks Based On State</h2>
+</header>
+
+<div class="container">
+
+<div id="menuPanel"></div>
+<div id="resultPanel"></div>
+
+<br>
+
+<button onclick="window.location.href='/static/map_modified.html'">
+⬅ Back 
+</button>
+
+</div>
+
+<script>
+
+const API_BASE="https://india-estuaries-api.onrender.com";
+const token=localStorage.getItem("access_token");
+
+const ESTUARY_STATE={
+"Palar":"Tamil Nadu",
+"Kollidam":"Tamil Nadu",
+"Pulicat":"Tamil Nadu"
+};
+
+/* FETCH DATA */
+
+async function getAllEstuaryData(){
+
+const estuaryRes=await fetch(`${API_BASE}/estuaries`,{
+headers:{Authorization:`Bearer ${token}`},
+cache:"no-store"
+});
+
+const estuaries=estuaryRes.ok?await estuaryRes.json():[];
+
+let allPoints=[];
+
+for(const est of estuaries){
+
+const [abRes,shRes,colRes,szRes]=await Promise.all([
+
+fetch(`${API_BASE}/estuaries/${est}/abundance`,{
+headers:{Authorization:`Bearer ${token}`}
+}),
+
+fetch(`${API_BASE}/estuaries/${est}/shape`,{
+headers:{Authorization:`Bearer ${token}`}
+}),
+
+fetch(`${API_BASE}/estuaries/${est}/color`,{
+headers:{Authorization:`Bearer ${token}`}
+}),
+
+fetch(`${API_BASE}/estuaries/${est}/size`,{
+headers:{Authorization:`Bearer ${token}`}
+})
+
+]);
+
+const abundance=abRes.ok?await abRes.json():{points:[]};
+const shape=shRes.ok?await shRes.json():{points:[]};
+const color=colRes.ok?await colRes.json():{points:[]};
+const size=szRes.ok?await szRes.json():{points:[]};
+
+abundance.points.forEach(pt=>{
+
+const shapePt=shape.points?.find(s=>s.station_code===pt.station_code)||{};
+const colorPt=color.points?.find(s=>s.station_code===pt.station_code)||{};
+const sizePt=size.points?.find(s=>s.station_code===pt.station_code)||{};
+
+allPoints.push({
+...pt,
+estuary:est,
+state:ESTUARY_STATE[est]||"Unknown",
+shape:shapePt,
+color:colorPt,
+size:sizePt
+});
+
+});
+
+}
+
+return allPoints;
+
+}
+
+/* MENU */
+
+function showStateMenu(){
+
+const menu=document.getElementById("menuPanel");
+
+menu.innerHTML=`
+<h3>Select Coast</h3>
+<button onclick="showStateEstuaries('west')">West Coast</button>
+<button onclick="showStateEstuaries('east')">East Coast</button>
+`;
+
+}
+
+function showStateEstuaries(coast){
+
+const menu=document.getElementById("menuPanel");
+
+const states=coast==="west"
+?["Gujarat","Maharashtra","Goa","Karnataka","Kerala"]
+:["West Bengal","Odisha","Andhra Pradesh","Tamil Nadu"];
+
+menu.innerHTML="<h3>Select State</h3>"+states.map(
+st=>`<button onclick="showMediumMenu('${st}')">${st}</button>`
+).join("");
+
+}
+
+function showMediumMenu(state){
+
+const panel=document.getElementById("resultPanel");
+
+panel.innerHTML=`
+<h3>${state}</h3>
+<h4>Select Medium</h4>
+
+<button onclick="showStateRanks('${state}','sediment')">Sediment</button>
+<button onclick="showStateRanks('${state}','water')">Water</button>
+`;
+
+}
+
+/* RANK TABLES */
+
+async function showStateRanks(state,med){
+
+const panel=document.getElementById("resultPanel");
+panel.innerHTML="Loading ranks...";
+
+const allPoints=await getAllEstuaryData();
+const statePoints=allPoints.filter(p=>p.state===state);
+
+if(statePoints.length===0){
+panel.innerHTML=`No data available for ${state}`;
+return;
+}
+
+let html=`<h3>${state} - ${med.toUpperCase()}</h3>`;
+
+/* ABUNDANCE */
+
+const sortedAb=statePoints.slice().sort(
+(a,b)=>(b[`${med}_abundance`]||0)-(a[`${med}_abundance`]||0)
+);
+
+html+=`
+<h4>Abundance Ranking</h4>
+<table>
+<tr>
+<th>Rank</th>
+<th>Station</th>
+<th>Estuary</th>
+<th>Abundance</th>
+</tr>
+`;
+
+sortedAb.forEach((p,i)=>{
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${p.station_code}</td>
+<td>${p.estuary}</td>
+<td>${Number(p[`${med}_abundance`]||0).toFixed(3)}</td>
+</tr>`;
+});
+
+html+="</table>";
+
+/* COLOR */
+
+const colorRows=[];
+
+statePoints.forEach(p=>{
+const colors=p.color?.[med]||p.color||{};
+Object.entries(colors).forEach(([c,v])=>{
+colorRows.push({
+color:c,
+station:p.station_code,
+estuary:p.estuary,
+value:v
+});
+});
+});
+
+colorRows.sort((a,b)=>b.value-a.value);
+
+html+=`
+<h4>Color Ranking</h4>
+<table>
+<tr>
+<th>Rank</th>
+<th>Color</th>
+<th>Station</th>
+<th>Estuary</th>
+<th>Value</th>
+</tr>
+`;
+
+colorRows.forEach((r,i)=>{
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${r.color}</td>
+<td>${r.station}</td>
+<td>${r.estuary}</td>
+<td>${Number(r.value).toFixed(3)}</td>
+</tr>`;
+});
+
+html+="</table>";
+
+/* SHAPE */
+
+const shapeRows=[];
+
+statePoints.forEach(p=>{
+const shapes=p.shape?.[med]||p.shape||{};
+Object.entries(shapes).forEach(([s,v])=>{
+shapeRows.push({
+shape:s,
+station:p.station_code,
+estuary:p.estuary,
+value:v
+});
+});
+});
+
+shapeRows.sort((a,b)=>b.value-a.value);
+
+html+=`
+<h4>Shape Ranking</h4>
+<table>
+<tr>
+<th>Rank</th>
+<th>Shape</th>
+<th>Station</th>
+<th>Estuary</th>
+<th>Value</th>
+</tr>
+`;
+
+shapeRows.forEach((r,i)=>{
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${r.shape}</td>
+<td>${r.station}</td>
+<td>${r.estuary}</td>
+<td>${Number(r.value).toFixed(3)}</td>
+</tr>`;
+});
+
+html+="</table>";
+
+/* SIZE */
+
+const sizeRows=[];
+
+statePoints.forEach(p=>{
+const sizes=p.size?.[med]||p.size||{};
+Object.entries(sizes).forEach(([s,v])=>{
+sizeRows.push({
+size:s,
+station:p.station_code,
+estuary:p.estuary,
+value:v
+});
+});
+});
+
+sizeRows.sort((a,b)=>b.value-a.value);
+
+html+=`
+<h4>Size Ranking</h4>
+<table>
+<tr>
+<th>Rank</th>
+<th>Size</th>
+<th>Station</th>
+<th>Estuary</th>
+<th>Value</th>
+</tr>
+`;
+
+sizeRows.forEach((r,i)=>{
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${r.size}</td>
+<td>${r.station}</td>
+<td>${r.estuary}</td>
+<td>${Number(r.value).toFixed(3)}</td>
+</tr>`;
+});
+
+html+="</table>";
+
+panel.innerHTML=html;
+
+}
+
+showStateMenu();
+
+</script>
+
+</body>
+</html>
+
