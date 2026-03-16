@@ -149,3 +149,7 @@ app.mount(
     StaticFiles(directory=BASE_DIR / "static"),
     name="static",
 )
+
+@app.get("/")
+def root():
+    return FileResponse(BASE_DIR / "static" / "map.html")
