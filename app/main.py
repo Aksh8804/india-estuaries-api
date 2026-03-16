@@ -36,6 +36,12 @@ from fastapi_cache.backends.inmemory import InMemoryBackend
 from app.database import engine
 from app.models import Base
 
+from sqlalchemy import text
+
+with engine.connect() as conn:
+    conn.execute(text("CREATE SCHEMA IF NOT EXISTS survey"))
+    conn.commit()
+
 Base.metadata.create_all(bind=engine)
 
 
