@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Estuary Ranking - India Estuary Microplastic Viewer</title>
+
+<style>
+
+body{
+font-family:Arial,sans-serif;
+margin:0;
+background:#f4f6fa;
+}
+
+header{
+background:#001a3d;
+color:white;
+padding:15px;
+text-align:center;
+}
+
+.container{
+padding:20px;
+}
+
+button{
+padding:8px 14px;
+margin:5px;
+cursor:pointer;
+border:none;
+background:#023;
+color:white;
+border-radius:4px;
+}
+
+button:hover{
+background:#035;
+}
+
+table{
+border-collapse:collapse;
+width:100%;
+margin-top:10px;
+margin-bottom:30px;
+background:white;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:6px 10px;
+text-align:center;
+}
+
+th{
+background:#eef2f7;
+}
+
+h3{
+color:#001a3d;
+}
+
+h4{
+margin-top:25px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>Ranks Based On Estuary</h2>
+</header>
+
+<div class="container">
+
+<div id="menuPanel"></div>
+<div id="resultPanel"></div>
+
+<br>
+
+<button onclick="window.location.href='/static/map.html'">
+⬅ Back
+</button>
+
+</div>
+
+<script>
+
+const API_BASE="https://india-estuaries-api.onrender.com";
+const token=localStorage.getItem("access_token");
+
+/* FORMAT LABELS */
+
+function formatKey(key){
+
+const map={
+lt_1mm:"<1 mm",
+mm_1_to_2_5:"1–2.5 mm",
+mm_2_5_to_5:"2.5–5 mm",
+fiber:"Fiber",
+fragment:"Fragment",
+film:"Film",
+foam:"Foam",
+pellet:"Pellet"
+};
+
+return map[key]||key;
+
+}
+
+/* FETCH DATA */
+
+async function getEstuaryData(est){
+
+const [abRes,shRes,colRes,szRes]=await Promise.all([
+
+fetch(`${API_BASE}/estuaries/${est}/abundance`,{
+headers:{Authorization:`Bearer ${token}`},
+cache:"no-store"
+}),
+
+fetch(`${API_BASE}/estuaries/${est}/shape`,{
+headers:{Authorization:`Bearer ${token}`},
+cache:"no-store"
+}),
+
+fetch(`${API_BASE}/estuaries/${est}/color`,{
+headers:{Authorization:`Bearer ${token}`},
+cache:"no-store"
+}),
+
+fetch(`${API_BASE}/estuaries/${est}/size`,{
+headers:{Authorization:`Bearer ${token}`},
+cache:"no-store"
+})
+
+]);
+
+const abundance=abRes.ok?await abRes.json():{points:[]};
+const shape=shRes.ok?await shRes.json():{points:[]};
+const color=colRes.ok?await colRes.json():{points:[]};
+const size=szRes.ok?await szRes.json():{points:[]};
+
+let points=[];
+
+abundance.points.forEach(pt=>{
+
+const shapePt=shape.points?.find(s=>s.station_code===pt.station_code)||{};
+const colorPt=color.points?.find(s=>s.station_code===pt.station_code)||{};
+const sizePt=size.points?.find(s=>s.station_code===pt.station_code)||{};
+
+points.push({
+...pt,
+shape:shapePt,
+color:colorPt,
+size:sizePt
+});
+
+});
+
+return points;
+
+}
+
+/* ESTUARY MENU */
+
+function showEstuaryMenu(){
+
+const menu=document.getElementById("menuPanel");
+
+menu.innerHTML=`
+<h3>Select Estuary</h3>
+
+<button onclick="showMediumMenu('Palar')">Palar</button>
+<button onclick="showMediumMenu('Kollidam')">Kollidam</button>
+<button onclick="showMediumMenu('Pulicat')">Pulicat</button>
+`;
+
+}
+
+/* MEDIUM MENU */
+
+function showMediumMenu(est){
+
+const panel=document.getElementById("resultPanel");
+
+panel.innerHTML=`
+
+<h3>${est}</h3>
+
+<h4>Select Medium</h4>
+
+<button onclick="showEstuaryRanks('${est}','sediment')">Sediment</button>
+<button onclick="showEstuaryRanks('${est}','water')">Water</button>
+
+`;
+
+}
+
+/* SHOW RANK TABLES */
+
+async function showEstuaryRanks(est,med){
+
+const panel=document.getElementById("resultPanel");
+panel.innerHTML="Loading ranks...";
+
+const points=await getEstuaryData(est);
+
+if(points.length===0){
+panel.innerHTML=`No data available for ${est}`;
+return;
+}
+
+let html=`<h3>${est} - ${med.toUpperCase()}</h3>`;
+
+/* ABUNDANCE TABLE */
+
+const sortedAb=points.slice().sort(
+(a,b)=>(b[`${med}_abundance`]||0)-(a[`${med}_abundance`]||0)
+);
+
+html+=`
+<h4>Abundance Ranking</h4>
+
+<table>
+
+<tr>
+<th>Rank</th>
+<th>Station</th>
+<th>Abundance</th>
+</tr>
+`;
+
+sortedAb.forEach((p,i)=>{
+
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${p.station_code}</td>
+<td>${Number(p[`${med}_abundance`]||0).toFixed(3)}</td>
+</tr>
+`;
+
+});
+
+html+="</table>";
+
+/* COLOR */
+
+const colorSum={};
+
+points.forEach(p=>{
+const colors=p.color?.[med]||p.color||{};
+for(const[k,v] of Object.entries(colors)){
+colorSum[k]=(colorSum[k]||0)+v;
+}
+});
+
+html+=`
+<h4>Color Ranking</h4>
+
+<table>
+
+<tr>
+<th>Rank</th>
+<th>Color</th>
+<th>Total</th>
+</tr>
+`;
+
+Object.entries(colorSum)
+.sort((a,b)=>b[1]-a[1])
+.forEach(([k,v],i)=>{
+
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${k}</td>
+<td>${Number(v).toFixed(3)}</td>
+</tr>
+`;
+
+});
+
+html+="</table>";
+
+/* SHAPE */
+
+const shapeSum={};
+
+points.forEach(p=>{
+const shapes=p.shape?.[med]||p.shape||{};
+for(const[k,v] of Object.entries(shapes)){
+shapeSum[k]=(shapeSum[k]||0)+v;
+}
+});
+
+html+=`
+<h4>Shape Ranking</h4>
+
+<table>
+
+<tr>
+<th>Rank</th>
+<th>Shape</th>
+<th>Total</th>
+</tr>
+`;
+
+Object.entries(shapeSum)
+.sort((a,b)=>b[1]-a[1])
+.forEach(([k,v],i)=>{
+
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${formatKey(k)}</td>
+<td>${Number(v).toFixed(3)}</td>
+</tr>
+`;
+
+});
+
+html+="</table>";
+
+/* SIZE */
+
+const sizeSum={};
+
+points.forEach(p=>{
+const sizes=p.size?.[med]||p.size||{};
+for(const[k,v] of Object.entries(sizes)){
+sizeSum[k]=(sizeSum[k]||0)+v;
+}
+});
+
+html+=`
+<h4>Size Ranking</h4>
+
+<table>
+
+<tr>
+<th>Rank</th>
+<th>Size</th>
+<th>Total</th>
+</tr>
+`;
+
+Object.entries(sizeSum)
+.sort((a,b)=>b[1]-a[1])
+.forEach(([k,v],i)=>{
+
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${formatKey(k)}</td>
+<td>${Number(v).toFixed(3)}</td>
+</tr>
+`;
+
+});
+
+html+="</table>";
+
+panel.innerHTML=html;
+
+}
+
+/* LOAD MENU */
+
+showEstuaryMenu();
+
+</script>
+
+</body>
+</html>
