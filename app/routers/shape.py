@@ -4,7 +4,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db
 from app import models, schemas
-from app.security import require_roles
 
 router = APIRouter(prefix="/shape", tags=["Shape"])
 
@@ -12,8 +11,7 @@ router = APIRouter(prefix="/shape", tags=["Shape"])
 @router.post("/")
 def create_shape(
     data: schemas.PlasticShapeCreate,
-    db: Session = Depends(get_db),
-    current_user=Depends(require_roles(["admin", "master_admin"]))
+    db: Session = Depends(get_db)
 ):
     # Check station exists
     station = db.query(models.SurveyPoints).filter(
@@ -60,14 +58,13 @@ def create_shape(
         db.rollback()
         raise HTTPException(status_code=500, detail="Database error")
 
+
 @router.delete("/{station_code}")
 def delete_shape(
     station_code: str,
-    db: Session = Depends(get_db),
-    current_user=Depends(require_roles(["master_admin"]))  # admin-only
+    db: Session = Depends(get_db)
 ):
     try:
-        # Find the entries
         water_entry = db.query(models.PlasticShapeWater).filter(
             models.PlasticShapeWater.station_code == station_code
         ).first()
@@ -79,7 +76,6 @@ def delete_shape(
         if not water_entry and not sediment_entry:
             raise HTTPException(status_code=404, detail="Shape data not found")
 
-        # Delete if exists
         if water_entry:
             db.delete(water_entry)
         if sediment_entry:

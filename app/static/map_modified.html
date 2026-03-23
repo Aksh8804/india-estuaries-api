@@ -186,12 +186,6 @@ button.logout {
         🌙
       </button>
 
-      <button id="logoutBtn"
-        class="logout"
-        onclick="logout()"
-        style="display:none;">
-        Logout
-      </button>
     </div>
 
   </div>
@@ -271,23 +265,6 @@ button.logout {
 
 
 <script>
-// ===== AUTH CHECK (run immediately) =====
-const token = localStorage.getItem("access_token");
-if(token){
-  document.getElementById("logoutBtn").style.display = "inline-block";
-}  
-
-
-if (!token) {
-  // Not logged in → redirect immediately
-   window.location.href = "/static/login.html";
-}
-
-// ===== LOGOUT FUNCTION =====
-function logout() {
-  localStorage.removeItem("access_token");
-  window.location.href = "/static/login.html";
-}
 
 Chart.defaults.font.family = "Arial";
 Chart.defaults.font.size = 13;
@@ -356,18 +333,10 @@ if(pieChart) pieChart.destroy();
   currentPoints = [];
   try{
     const [abRes, shRes, colRes, szRes] = await Promise.all([
-  fetch(`${API_BASE}/estuaries/${currentEstuary}/abundance`, {
-    headers: { "Authorization": `Bearer ${token}` }
-  }),
-  fetch(`${API_BASE}/estuaries/${currentEstuary}/shape`, {
-    headers: { "Authorization": `Bearer ${token}` }
-  }),
-  fetch(`${API_BASE}/estuaries/${currentEstuary}/color`, {
-    headers: { "Authorization": `Bearer ${token}` }
-  }),
-  fetch(`${API_BASE}/estuaries/${currentEstuary}/size`, {
-    headers: { "Authorization": `Bearer ${token}` }
-  })
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/abundance`),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/shape`),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/color`),
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/size`)
 ]);
     const abundance = abRes.ok ? await abRes.json() : { points: [] };
     const shape     = shRes.ok ? await shRes.json() : { points: [] };
@@ -919,15 +888,14 @@ const pieCtx = document.getElementById("pieCanvas").getContext("2d");
 }
 // ===== GET ALL ESTUARY DATA =====
 async function getAllEstuaryData(){
-  const token = localStorage.getItem("access_token");
   const estuaries = ["Palar","Kollidam","Pulicat"];
   let allPoints = [];
   for(const est of estuaries){
     const [abRes, shRes, colRes, szRes] = await Promise.all([
-      fetch(`${API_BASE}/estuaries/${est}/abundance`, { headers:{ "Authorization":`Bearer ${token}` }}),
-      fetch(`${API_BASE}/estuaries/${est}/shape`,     { headers:{ "Authorization":`Bearer ${token}` }}),
-      fetch(`${API_BASE}/estuaries/${est}/color`,     { headers:{ "Authorization":`Bearer ${token}` }}),
-      fetch(`${API_BASE}/estuaries/${est}/size`,      { headers:{ "Authorization":`Bearer ${token}` }})
+      fetch(`${API_BASE}/estuaries/${est}/abundance`),
+      fetch(`${API_BASE}/estuaries/${est}/shape`),
+      fetch(`${API_BASE}/estuaries/${est}/color`),
+      fetch(`${API_BASE}/estuaries/${est}/size`)
     ]);
     const abundance = abRes.ok ? await abRes.json() : { points: [] };
     const shape     = shRes.ok ? await shRes.json() : { points: [] };

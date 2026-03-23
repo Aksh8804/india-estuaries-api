@@ -4,7 +4,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db
 from app import models, schemas
-from app.security import require_roles
 
 router = APIRouter(prefix="/survey/full", tags=["Full Survey"])
 
@@ -12,8 +11,7 @@ router = APIRouter(prefix="/survey/full", tags=["Full Survey"])
 @router.post("/")
 def create_full_survey(
     data: schemas.FullSurveyCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(require_roles(["admin", "editor"]))
+    db: Session = Depends(get_db)
 ):
     try:
         # Check duplicate station
@@ -115,14 +113,13 @@ def create_full_survey(
         db.rollback()
         raise HTTPException(status_code=500, detail="Database error")
 
+
 @router.delete("/{station_code}")
 def delete_full_survey(
     station_code: str,
-    db: Session = Depends(get_db),
-    current_user=Depends(require_roles(["admin"]))  # Admin-only
+    db: Session = Depends(get_db)
 ):
     try:
-        # 1️⃣ Find all related entries
         survey = db.query(models.SurveyPoints).filter(
             models.SurveyPoints.station_code == station_code
         ).first()
@@ -155,18 +152,17 @@ def delete_full_survey(
             models.PlasticSizeSediment.station_code == station_code
         ).first()
 
-        # 2️⃣ Check if any data exists
         if not any([survey, water_abundance, shape_water, shape_sediment,
                     color_water, color_sediment, size_water, size_sediment]):
             raise HTTPException(status_code=404, detail="No data found for this station")
 
-        # 3️⃣ Delete entries if they exist
         for entry in [size_sediment, size_water, color_sediment, color_water,
                       shape_sediment, shape_water, water_abundance, survey]:
             if entry:
                 db.delete(entry)
 
         db.commit()
+
         return {"message": f"All survey data for station '{station_code}' deleted successfully"}
 
     except SQLAlchemyError:

@@ -4,7 +4,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db
 from app import models, schemas
-from app.security import require_roles
 
 router = APIRouter(prefix="/abundance", tags=["Abundance"])
 
@@ -13,7 +12,6 @@ router = APIRouter(prefix="/abundance", tags=["Abundance"])
 def create_abundance(
     data: schemas.PlasticAbundanceCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles(["admin", "master_admin"]))
 ):
     # Check station exists
     station = db.query(models.SurveyPoints).filter(
@@ -46,7 +44,6 @@ def create_abundance(
 def delete_abundance(
     station_code: str,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles(["master_admin"]))  # Admin-only
 ):
     try:
         # Find the abundance entry for the station
