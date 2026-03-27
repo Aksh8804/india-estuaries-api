@@ -2,30 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Register - India Estuary Microplastic Viewer</title>
+<title>Register</title>
 
 <style>
+
 body {
   margin:0;
-  font-family: Arial;
-  background:#f4f6f9;
+  height:100vh;
   display:flex;
   justify-content:center;
   align-items:center;
-  height:100vh;
+  background:#f2f4f8;
+  font-family:Arial;
 }
 
-.container {
+.card {
   background:white;
   padding:40px;
-  width:350px;
-  box-shadow:0 5px 20px rgba(0,0,0,0.1);
-  border-radius:8px;
+  border-radius:10px;
+  width:360px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.1);
+  text-align:center;
 }
 
 h2 {
-  text-align:center;
-  margin-bottom:20px;
+  margin-bottom:25px;
+}
+
+label {
+  display:block;
+  text-align:left;
+  margin-bottom:5px;
+  font-size:14px;
+  font-weight:bold;
 }
 
 input {
@@ -33,7 +42,8 @@ input {
   padding:10px;
   margin-bottom:15px;
   border:1px solid #ccc;
-  border-radius:4px;
+  border-radius:5px;
+  font-size:14px;
 }
 
 button {
@@ -42,44 +52,82 @@ button {
   background:#023;
   color:white;
   border:none;
+  border-radius:5px;
   cursor:pointer;
-  border-radius:4px;
+  margin-bottom:15px;
+  font-size:14px;
 }
 
 button:hover {
   background:#035;
 }
 
-.link {
-  text-align:center;
-  margin-top:15px;
+.show-pass {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:13px;
+  margin-bottom:12px;
+  justify-content:flex-start;
+  white-space: nowrap;
 }
 
-.link a {
-  text-decoration:none;
-  color:#023;
+.show-pass label {
+  margin:0;
+  font-weight:normal;
 }
 
 .message {
-  margin-top:15px;
-  text-align:center;
+  margin-top:10px;
   font-size:14px;
+  min-height:20px;
 }
+
 .success { color:green; }
 .error { color:red; }
+
+.link {
+  margin-top:15px;
+  font-size:14px;
+}
+
+.link a {
+  color:#023;
+  text-decoration:none;
+}
+
+.link a:hover {
+  text-decoration:underline;
+}
+
 </style>
+
 </head>
 
 <body>
 
-<div class="container">
+<div class="card">
   <h2>Create Account</h2>
 
-  <input type="text" id="username" placeholder="Username">
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password (min 8 chars)">
+  <!-- Username -->
+  <label for="username">Username</label>
+  <input type="text" id="username" placeholder="Enter your username" required>
 
-  <button onclick="register()">Register</button>
+  <!-- Email -->
+  <label for="email">Email</label>
+  <input type="email" id="email" placeholder="Enter your email" required>
+
+  <!-- Password -->
+  <label for="password">Password</label>
+  <input type="password" id="password" placeholder="Minimum 8 characters" required>
+
+  <!-- Show Password -->
+  <div class="show-pass">
+    <input type="checkbox" id="showPassword">
+    <label for="showPassword">Show Password</label>
+  </div>
+
+  <button onclick="register()" id="registerBtn">Register</button>
 
   <div class="message" id="message"></div>
 
@@ -90,18 +138,29 @@ button:hover {
 </div>
 
 <script>
+
 const API_BASE = "https://india-estuaries-api.onrender.com";
 
+// 👁️ Show / Hide password
+document.getElementById("showPassword").addEventListener("change", function () {
+  const passwordField = document.getElementById("password");
+  passwordField.type = this.checked ? "text" : "password";
+});
 
-
+// 🔐 Register
 async function register() {
+
   const username = document.getElementById("username").value;
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
+
   const messageDiv = document.getElementById("message");
+  const btn = document.getElementById("registerBtn");
 
   messageDiv.className = "message";
   messageDiv.innerText = "Creating account...";
+  btn.disabled = true;
+  btn.innerText = "Registering...";
 
   try {
     const response = await fetch(`${API_BASE}/register`, {
@@ -119,6 +178,8 @@ async function register() {
     if (!response.ok) {
       messageDiv.className = "message error";
       messageDiv.innerText = data.detail || "Registration failed.";
+      btn.disabled = false;
+      btn.innerText = "Register";
       return;
     }
 
@@ -126,14 +187,18 @@ async function register() {
     messageDiv.innerHTML = `
       ${data.message}<br><br>
       📧 Please check your email (and spam folder).<br><br>
-     <a href="login.html">Go to Login</a>
+      <a href="/static/login.html">Go to Login</a>
     `;
 
   } catch (err) {
     messageDiv.className = "message error";
     messageDiv.innerText = "Server error. Please try again.";
   }
+
+  btn.disabled = false;
+  btn.innerText = "Register";
 }
+
 </script>
 
 </body>

@@ -1,69 +1,57 @@
-
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <title>State Ranking - India Estuary Microplastic Viewer</title>
 
+<!-- PDF LIBRARIES -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
 <style>
-
 body{
-font-family:Arial,sans-serif;
-margin:0;
-background:#f4f6fa;
+    font-family:Arial,sans-serif;
+    margin:0;
+    background:#f4f6fa;
 }
-
 header{
-background:#001a3d;
-color:white;
-padding:15px;
-text-align:center;
+    background:#001a3d;
+    color:white;
+    padding:15px;
+    text-align:center;
 }
-
-.container{
-padding:20px;
-}
-
+.container{padding:20px;}
 button{
-padding:8px 14px;
-margin:5px;
-cursor:pointer;
-border:none;
-background:#023;
-color:white;
-border-radius:4px;
+    padding:8px 14px;
+    margin:5px;
+    cursor:pointer;
+    border:none;
+    background:#023;
+    color:white;
+    border-radius:4px;
 }
-
-button:hover{
-background:#035;
+button:hover{background:#035;}
+select{
+    padding:8px;
+    margin:5px;
+    border-radius:4px;
+    border:1px solid #ccc;
 }
-
 table{
-border-collapse:collapse;
-width:100%;
-margin-top:10px;
-margin-bottom:30px;
-background:white;
+    border-collapse:collapse;
+    width:100%;
+    margin-top:10px;
+    margin-bottom:30px;
+    background:white;
 }
-
 th,td{
-border:1px solid #ccc;
-padding:6px 10px;
-text-align:center;
+    border:1px solid #ccc;
+    padding:6px 10px;
+    text-align:center;
 }
-
-th{
-background:#eef2f7;
-}
-
-h3{
-color:#001a3d;
-}
-
-h4{
-margin-top:25px;
-}
-
+th{background:#eef2f7;}
+h3{color:#001a3d;}
+h4{margin-top:25px;}
 </style>
 </head>
 
@@ -74,317 +62,361 @@ margin-top:25px;
 </header>
 
 <div class="container">
-
 <div id="menuPanel"></div>
 <div id="resultPanel"></div>
 
 <br>
-
 <button onclick="window.location.href='/static/map_modified.html'">
-⬅ Back 
+⬅ Back
 </button>
-
 </div>
 
 <script>
-
 const API_BASE="https://india-estuaries-api.onrender.com";
 const token=localStorage.getItem("access_token");
 
-const ESTUARY_STATE={
-"Palar":"Tamil Nadu",
-"Kollidam":"Tamil Nadu",
-"Pulicat":"Tamil Nadu"
+const STATE_FALLBACK={
+    "Palar":"Tamil Nadu",
+    "Kollidam":"Tamil Nadu",
+    "Pulicat":"Tamil Nadu"
 };
 
-/* FETCH DATA */
+let CURRENT_DATA=[];
+let CURRENT_STATE="";
+let CURRENT_MED="";
+let CURRENT_CATEGORY="";
 
+/* ================= FETCH ================= */
 async function getAllEstuaryData(){
+    const estuaryRes=await fetch(`${API_BASE}/estuaries`,{
+        headers:{Authorization:`Bearer ${token}`},
+        cache:"no-store"
+    });
+    const estuaries=estuaryRes.ok?await estuaryRes.json():[];
+    let allPoints=[];
 
-const estuaryRes=await fetch(`${API_BASE}/estuaries`,{
-headers:{Authorization:`Bearer ${token}`},
-cache:"no-store"
-});
+    for(const est of estuaries){
+        let state="Unknown";
+        try{
+            const metaRes=await fetch(`${API_BASE}/estuaries/${est}`,{
+                headers:{Authorization:`Bearer ${token}`}
+            });
+            const meta=metaRes.ok?await metaRes.json():{};
+            state=meta.state || STATE_FALLBACK[est] || "Unknown";
+        }catch(e){
+            state=STATE_FALLBACK[est] || "Unknown";
+        }
 
-const estuaries=estuaryRes.ok?await estuaryRes.json():[];
+        const [abRes,shRes,colRes,szRes]=await Promise.all([
+            fetch(`${API_BASE}/estuaries/${est}/abundance`,{headers:{Authorization:`Bearer ${token}`}}),
+            fetch(`${API_BASE}/estuaries/${est}/shape`,{headers:{Authorization:`Bearer ${token}`}}),
+            fetch(`${API_BASE}/estuaries/${est}/color`,{headers:{Authorization:`Bearer ${token}`}}),
+            fetch(`${API_BASE}/estuaries/${est}/size`,{headers:{Authorization:`Bearer ${token}`}})
+        ]);
 
-let allPoints=[];
+        const abundance=abRes.ok?await abRes.json():{points:[]};
+        const shape=shRes.ok?await shRes.json():{points:[]};
+        const color=colRes.ok?await colRes.json():{points:[]};
+        const size=szRes.ok?await szRes.json():{points:[]};
 
-for(const est of estuaries){
+        abundance.points.forEach(pt=>{
+            const shapePt=shape.points?.find(s=>s.station_code===pt.station_code)||{};
+            const colorPt=color.points?.find(s=>s.station_code===pt.station_code)||{};
+            const sizePt=size.points?.find(s=>s.station_code===pt.station_code)||{};
 
-const [abRes,shRes,colRes,szRes]=await Promise.all([
-
-fetch(`${API_BASE}/estuaries/${est}/abundance`,{
-headers:{Authorization:`Bearer ${token}`}
-}),
-
-fetch(`${API_BASE}/estuaries/${est}/shape`,{
-headers:{Authorization:`Bearer ${token}`}
-}),
-
-fetch(`${API_BASE}/estuaries/${est}/color`,{
-headers:{Authorization:`Bearer ${token}`}
-}),
-
-fetch(`${API_BASE}/estuaries/${est}/size`,{
-headers:{Authorization:`Bearer ${token}`}
-})
-
-]);
-
-const abundance=abRes.ok?await abRes.json():{points:[]};
-const shape=shRes.ok?await shRes.json():{points:[]};
-const color=colRes.ok?await colRes.json():{points:[]};
-const size=szRes.ok?await szRes.json():{points:[]};
-
-abundance.points.forEach(pt=>{
-
-const shapePt=shape.points?.find(s=>s.station_code===pt.station_code)||{};
-const colorPt=color.points?.find(s=>s.station_code===pt.station_code)||{};
-const sizePt=size.points?.find(s=>s.station_code===pt.station_code)||{};
-
-allPoints.push({
-...pt,
-estuary:est,
-state:ESTUARY_STATE[est]||"Unknown",
-shape:shapePt,
-color:colorPt,
-size:sizePt
-});
-
-});
-
+            allPoints.push({
+                ...pt,
+                estuary:est,
+                state:state,
+                lat: pt.latitude ?? pt.lat ?? "",
+                lon: pt.longitude ?? pt.lon ?? "",
+                shape:shapePt,
+                color:colorPt,
+                size:sizePt,
+                category: pt.category || "microplastic"  // default category
+            });
+        });
+    }
+    return allPoints;
 }
 
-return allPoints;
-
+/* ================= SIZE FORMAT ================= */
+function formatSize(size){
+    if(!size) return "";
+    if(size.startsWith("lt_")){
+        let num=size.replace("lt_","").replace("mm","");
+        return `< ${num} mm`;
+    }
+    if(size.startsWith("mm_")){
+        let clean=size.replace("mm_","");
+        let parts=clean.split("_to_");
+        if(parts.length===2){
+            let start=parts[0].replace(/_/g,".");
+            let end=parts[1].replace(/_/g,".");
+            return `${start} mm to ${end} mm`;
+        }
+    }
+    return size;
 }
 
-/* MENU */
-
+/* ================= DROPDOWN MENU ================= */
 function showStateMenu(){
+    document.getElementById("menuPanel").innerHTML = `
+        <h3>Select Filters</h3>
 
-const menu=document.getElementById("menuPanel");
+        <select id="coastSelect" onchange="updateStates()">
+            <option value="">Select Coast</option>
+            <option value="west">West Coast</option>
+            <option value="east">East Coast</option>
+        </select>
 
-menu.innerHTML=`
-<h3>Select Coast</h3>
-<button onclick="showStateEstuaries('west')">West Coast</button>
-<button onclick="showStateEstuaries('east')">East Coast</button>
-`;
+        <select id="stateSelect" onchange="updateCategory()" disabled>
+            <option value="">Select State</option>
+        </select>
 
+        <select id="categorySelect" onchange="updateMedium()" disabled>
+            <option value="">Select Category</option>
+            <option value="microplastic">Microplastic</option>
+            <option value="others">Others</option>
+        </select>
+
+        <select id="mediumSelect" onchange="loadData()" disabled>
+            <option value="">Select Medium</option>
+            <option value="sediment">Sediment</option>
+            <option value="water">Water</option>
+        </select>
+    `;
 }
 
-function showStateEstuaries(coast){
+function updateStates(){
+    const coast = document.getElementById("coastSelect").value;
+    const stateDropdown = document.getElementById("stateSelect");
+    let states = [];
 
-const menu=document.getElementById("menuPanel");
+    if(coast === "west"){
+        states = ["Gujarat","Maharashtra","Goa","Karnataka","Kerala"];
+    } else if(coast === "east"){
+        states = ["West Bengal","Odisha","Andhra Pradesh","Tamil Nadu"];
+    }
 
-const states=coast==="west"
-?["Gujarat","Maharashtra","Goa","Karnataka","Kerala"]
-:["West Bengal","Odisha","Andhra Pradesh","Tamil Nadu"];
+    stateDropdown.innerHTML = `<option value="">Select State</option>` +
+        states.map(s=>`<option value="${s}">${s}</option>`).join("");
+    stateDropdown.disabled = false;
 
-menu.innerHTML="<h3>Select State</h3>"+states.map(
-st=>`<button onclick="showMediumMenu('${st}')">${st}</button>`
-).join("");
-
+    document.getElementById("categorySelect").disabled = true;
+    document.getElementById("mediumSelect").disabled = true;
 }
 
-function showMediumMenu(state){
-
-const panel=document.getElementById("resultPanel");
-
-panel.innerHTML=`
-<h3>${state}</h3>
-<h4>Select Medium</h4>
-
-<button onclick="showStateRanks('${state}','sediment')">Sediment</button>
-<button onclick="showStateRanks('${state}','water')">Water</button>
-`;
-
+function updateCategory(){
+    document.getElementById("categorySelect").disabled = false;
+    document.getElementById("mediumSelect").disabled = true;
 }
 
-/* RANK TABLES */
-
-async function showStateRanks(state,med){
-
-const panel=document.getElementById("resultPanel");
-panel.innerHTML="Loading ranks...";
-
-const allPoints=await getAllEstuaryData();
-const statePoints=allPoints.filter(p=>p.state===state);
-
-if(statePoints.length===0){
-panel.innerHTML=`No data available for ${state}`;
-return;
+function updateMedium(){
+    document.getElementById("mediumSelect").disabled = false;
 }
 
-let html=`<h3>${state} - ${med.toUpperCase()}</h3>`;
+function loadData(){
+    const state = document.getElementById("stateSelect").value;
+    const category = document.getElementById("categorySelect").value;
+    const medium = document.getElementById("mediumSelect").value;
 
-/* ABUNDANCE */
+    if(!state || !category || !medium) return;
 
-const sortedAb=statePoints.slice().sort(
-(a,b)=>(b[`${med}_abundance`]||0)-(a[`${med}_abundance`]||0)
-);
-
-html+=`
-<h4>Abundance Ranking</h4>
-<table>
-<tr>
-<th>Rank</th>
-<th>Station</th>
-<th>Estuary</th>
-<th>Abundance</th>
-</tr>
-`;
-
-sortedAb.forEach((p,i)=>{
-html+=`
-<tr>
-<td>${i+1}</td>
-<td>${p.station_code}</td>
-<td>${p.estuary}</td>
-<td>${Number(p[`${med}_abundance`]||0).toFixed(3)}</td>
-</tr>`;
-});
-
-html+="</table>";
-
-/* COLOR */
-
-const colorRows=[];
-
-statePoints.forEach(p=>{
-const colors=p.color?.[med]||p.color||{};
-Object.entries(colors).forEach(([c,v])=>{
-colorRows.push({
-color:c,
-station:p.station_code,
-estuary:p.estuary,
-value:v
-});
-});
-});
-
-colorRows.sort((a,b)=>b.value-a.value);
-
-html+=`
-<h4>Color Ranking</h4>
-<table>
-<tr>
-<th>Rank</th>
-<th>Color</th>
-<th>Station</th>
-<th>Estuary</th>
-<th>Value</th>
-</tr>
-`;
-
-colorRows.forEach((r,i)=>{
-html+=`
-<tr>
-<td>${i+1}</td>
-<td>${r.color}</td>
-<td>${r.station}</td>
-<td>${r.estuary}</td>
-<td>${Number(r.value).toFixed(3)}</td>
-</tr>`;
-});
-
-html+="</table>";
-
-/* SHAPE */
-
-const shapeRows=[];
-
-statePoints.forEach(p=>{
-const shapes=p.shape?.[med]||p.shape||{};
-Object.entries(shapes).forEach(([s,v])=>{
-shapeRows.push({
-shape:s,
-station:p.station_code,
-estuary:p.estuary,
-value:v
-});
-});
-});
-
-shapeRows.sort((a,b)=>b.value-a.value);
-
-html+=`
-<h4>Shape Ranking</h4>
-<table>
-<tr>
-<th>Rank</th>
-<th>Shape</th>
-<th>Station</th>
-<th>Estuary</th>
-<th>Value</th>
-</tr>
-`;
-
-shapeRows.forEach((r,i)=>{
-html+=`
-<tr>
-<td>${i+1}</td>
-<td>${r.shape}</td>
-<td>${r.station}</td>
-<td>${r.estuary}</td>
-<td>${Number(r.value).toFixed(3)}</td>
-</tr>`;
-});
-
-html+="</table>";
-
-/* SIZE */
-
-const sizeRows=[];
-
-statePoints.forEach(p=>{
-const sizes=p.size?.[med]||p.size||{};
-Object.entries(sizes).forEach(([s,v])=>{
-sizeRows.push({
-size:s,
-station:p.station_code,
-estuary:p.estuary,
-value:v
-});
-});
-});
-
-sizeRows.sort((a,b)=>b.value-a.value);
-
-html+=`
-<h4>Size Ranking</h4>
-<table>
-<tr>
-<th>Rank</th>
-<th>Size</th>
-<th>Station</th>
-<th>Estuary</th>
-<th>Value</th>
-</tr>
-`;
-
-sizeRows.forEach((r,i)=>{
-html+=`
-<tr>
-<td>${i+1}</td>
-<td>${r.size}</td>
-<td>${r.station}</td>
-<td>${r.estuary}</td>
-<td>${Number(r.value).toFixed(3)}</td>
-</tr>`;
-});
-
-html+="</table>";
-
-panel.innerHTML=html;
-
+    showStateRanks(state, medium, category);
 }
 
+/* ================= TABLE ================= */
+function buildTable(title,headers,rows){
+    let html=`<h4>${title}</h4><table><tr>`;
+    headers.forEach(h=>html+=`<th>${h}</th>`);
+    html+="</tr>";
+    rows.forEach((r,i)=>{ html+="<tr>"+r(i)+"</tr>"; });
+    html+="</table>";
+    return html;
+}
+
+/* ================= RENDER ================= */
+async function showStateRanks(state,med,category){
+    CURRENT_STATE = state;
+    CURRENT_MED = med;
+    CURRENT_CATEGORY = category;
+    const panel = document.getElementById("resultPanel");
+    panel.innerHTML="Loading...";
+
+    const allPoints = await getAllEstuaryData();
+    let statePoints = allPoints.filter(p => (p.state||"").toLowerCase().trim() === state.toLowerCase().trim());
+
+    if(category && category!=="all"){
+        statePoints = statePoints.filter(p => p.category === category);
+    }
+
+    CURRENT_DATA = statePoints;
+
+    if(!statePoints.length){
+        panel.innerHTML=`❌ No data available for ${state} - ${category}`;
+        return;
+    }
+
+    let html=`<h3>${state} - ${category.toUpperCase()} - ${med.toUpperCase()}</h3>`;
+
+    const ab=[...statePoints].sort((a,b)=>(b[`${med}_abundance`]||0)-(a[`${med}_abundance`]||0));
+    html+=buildTable("Abundance Ranking",
+        ["Rank","Station","Estuary","Lat","Lon","Value"],
+        ab.map(p=>i=>`
+            <td>${i+1}</td>
+            <td>${p.station_code}</td>
+            <td>${p.estuary}</td>
+            <td>${p.lat||"-"}</td>
+            <td>${p.lon||"-"}</td>
+            <td>${Number(p[`${med}_abundance`]||0).toFixed(3)}</td>
+        `));
+
+    function buildRows(key,label){
+        let rows=[];
+        statePoints.forEach(p=>{
+            const obj=p[key]?.[med]||p[key]||{};
+            Object.entries(obj).forEach(([k,v])=>{ rows.push({...p,name:k,value:v}); });
+        });
+        rows.sort((a,b)=>b.value-a.value);
+        return buildTable(`${label} Ranking`,
+            ["Rank",label,"Station","Estuary","Lat","Lon","Value"],
+            rows.map(r=>i=>`
+                <td>${i+1}</td>
+                <td>${key==="size"?formatSize(r.name):r.name}</td>
+                <td>${r.station_code}</td>
+                <td>${r.estuary}</td>
+                <td>${r.lat||"-"}</td>
+                <td>${r.lon||"-"}</td>
+                <td>${Number(r.value).toFixed(3)}</td>
+            `));
+    }
+
+    html+=buildRows("color","Color");
+    html+=buildRows("shape","Shape");
+    html+=buildRows("size","Size");
+
+    panel.innerHTML=html+`
+        <br>
+        <button onclick="downloadCSV()">⬇ Download CSV</button>
+        <button onclick="downloadPDF()">⬇ Download PDF</button>
+    `;
+}
+
+/* ================= CSV ================= */
+function downloadCSV(){
+    if(!CURRENT_DATA.length){ alert("No data"); return; }
+    let csv = "";
+    csv += `${CURRENT_STATE} - ${CURRENT_CATEGORY.toUpperCase()} - ${CURRENT_MED.toUpperCase()} FULL REPORT\n\n`;
+
+    csv += "Abundance Ranking\nEstuary,Station,Lat,Lon,Abundance\n";
+    [...CURRENT_DATA].sort((a,b)=>(b[`${CURRENT_MED}_abundance`]||0)-(a[`${CURRENT_MED}_abundance`]||0))
+        .forEach(p=>{
+            csv += `${p.estuary},${p.station_code},${p.lat||"-"},${p.lon||"-"},${Number(p[`${CURRENT_MED}_abundance`]||0).toFixed(3)}\n`;
+        });
+    csv += "\n";
+
+    // COLOR
+    csv += "Color Ranking\nEstuary,Station,Lat,Lon,Color,Value\n";
+    let colorRows=[];
+    CURRENT_DATA.forEach(p=>{
+        const colors = p.color?.[CURRENT_MED] || p.color || {};
+        Object.entries(colors).forEach(([k,v])=>{
+            colorRows.push([p.estuary,p.station_code,p.lat||"-",p.lon||"-",k,Number(v).toFixed(3)]);
+        });
+    });
+    colorRows.sort((a,b)=>b[5]-a[5]);
+    colorRows.forEach(r=>{ csv += `${r.join(",")}\n`; });
+    csv += "\n";
+
+    // SHAPE
+    csv += "Shape Ranking\nEstuary,Station,Lat,Lon,Shape,Value\n";
+    let shapeRows=[];
+    CURRENT_DATA.forEach(p=>{
+        const shapes = p.shape?.[CURRENT_MED] || p.shape || {};
+        Object.entries(shapes).forEach(([k,v])=>{
+            shapeRows.push([p.estuary,p.station_code,p.lat||"-",p.lon||"-",k,Number(v).toFixed(3)]);
+        });
+    });
+    shapeRows.sort((a,b)=>b[5]-a[5]);
+    shapeRows.forEach(r=>{ csv += `${r.join(",")}\n`; });
+    csv += "\n";
+
+    // SIZE
+    csv += "Size Ranking\nEstuary,Station,Lat,Lon,Size,Value\n";
+    let sizeRows=[];
+    CURRENT_DATA.forEach(p=>{
+        const sizes = p.size?.[CURRENT_MED] || p.size || {};
+        Object.entries(sizes).forEach(([k,v])=>{
+            sizeRows.push([p.estuary,p.station_code,p.lat||"-",p.lon||"-",formatSize(k),Number(v).toFixed(3)]);
+        });
+    });
+    sizeRows.sort((a,b)=>b[5]-a[5]);
+    sizeRows.forEach(r=>{ csv += `${r.join(",")}\n`; });
+
+    const blob = new Blob([csv],{type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${CURRENT_STATE}_${CURRENT_CATEGORY}_${CURRENT_MED}_FULL_REPORT.csv`;
+    a.click();
+}
+
+/* ================= PDF ================= */
+function downloadPDF(){
+    if(!CURRENT_DATA.length){ alert("No data"); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let y = 10;
+    doc.setFontSize(14);
+    doc.text(`${CURRENT_STATE} - ${CURRENT_CATEGORY.toUpperCase()} - ${CURRENT_MED.toUpperCase()} FULL REPORT`,10,y);
+    y += 10;
+
+    // ABUNDANCE
+    let abRows=[];
+    [...CURRENT_DATA].sort((a,b)=>(b[`${CURRENT_MED}_abundance`]||0)-(a[`${CURRENT_MED}_abundance`]||0))
+        .forEach(p=>{ abRows.push([p.estuary,p.station_code,p.lat||"-",p.lon||"-",Number(p[`${CURRENT_MED}_abundance`]||0).toFixed(3)]); });
+    doc.text("Abundance Ranking",10,y); y+=5;
+    doc.autoTable({head:[["Estuary","Station","Lat","Lon","Abundance"]],body:abRows,startY:y});
+    y = doc.lastAutoTable.finalY + 10;
+
+    // COLOR
+    let colorRows=[];
+    CURRENT_DATA.forEach(p=>{
+        const colors = p.color?.[CURRENT_MED] || p.color || {};
+        Object.entries(colors).forEach(([k,v])=>{ colorRows.push([p.estuary,p.station_code,p.lat||"-",p.lon||"-",k,Number(v).toFixed(3)]); });
+    });
+    colorRows.sort((a,b)=>b[5]-a[5]);
+    doc.text("Color Ranking",10,y); y+=5;
+    doc.autoTable({head:[["Estuary","Station","Lat","Lon","Color","Value"]],body:colorRows,startY:y});
+    y = doc.lastAutoTable.finalY + 10;
+
+    // SHAPE
+    let shapeRows=[];
+    CURRENT_DATA.forEach(p=>{
+        const shapes = p.shape?.[CURRENT_MED] || p.shape || {};
+        Object.entries(shapes).forEach(([k,v])=>{ shapeRows.push([p.estuary,p.station_code,p.lat||"-",p.lon||"-",k,Number(v).toFixed(3)]); });
+    });
+    shapeRows.sort((a,b)=>b[5]-a[5]);
+    doc.text("Shape Ranking",10,y); y+=5;
+    doc.autoTable({head:[["Estuary","Station","Lat","Lon","Shape","Value"]],body:shapeRows,startY:y});
+    y = doc.lastAutoTable.finalY + 10;
+
+    // SIZE
+    let sizeRows=[];
+    CURRENT_DATA.forEach(p=>{
+        const sizes = p.size?.[CURRENT_MED] || p.size || {};
+        Object.entries(sizes).forEach(([k,v])=>{ sizeRows.push([p.estuary,p.station_code,p.lat||"-",p.lon||"-",formatSize(k),Number(v).toFixed(3)]); });
+    });
+    sizeRows.sort((a,b)=>b[5]-a[5]);
+    doc.text("Size Ranking",10,y); y+=5;
+    doc.autoTable({head:[["Estuary","Station","Lat","Lon","Size","Value"]],body:sizeRows,startY:y});
+
+    doc.save(`${CURRENT_STATE}_${CURRENT_CATEGORY}_${CURRENT_MED}_FULL_REPORT.pdf`);
+}
+
+/* ================= INIT ================= */
 showStateMenu();
 
 </script>
-
 </body>
 </html>
-

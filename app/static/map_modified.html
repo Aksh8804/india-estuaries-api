@@ -8,6 +8,7 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 
@@ -23,14 +24,14 @@ html, body {
 }
 
 body {
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  background-color: #ffffff;
+  color: #111;
   margin:0;
   font-family: Arial;
 }
 
-header { 
-  background: var(--header-bg);
+header {
+  background: #001a3d;
   color: #ffffff;
   padding:15px;
   position: relative;
@@ -41,7 +42,7 @@ header {
   display:flex;
   flex-wrap:wrap;
   padding:10px 20px;
- background: var(--controls-bg);  gap:20px;
+  background: #e8e8e8;gap:20px;
   border-bottom: 1px solid #333;
 }
 
@@ -113,32 +114,21 @@ button.logout {
 }
 
 .control-group label {
-  color: var(--text-color);
+  color: #111;
   margin-bottom: 4px;
   font-weight: 600;
 }
 
 .control-group select {
-  background: var(--dropdown-bg);
-  color: var(--text-color);
+  background: #ffffff;
+  color: #111;
   border: 1px solid #444;
   padding: 4px 6px;
   border-radius: 4px;
 }
 
 
-:root {
-  --bg-color: #ffffff;
-  --text-color: #111;
- --header-bg: #001a3d;
-  --controls-bg: #e8e8e8;
-  --popup-bg: #ffffff;
-  --dropdown-bg: #ffffff;
-}
 
-#chartContainer {
-  display: none;
-}
 
 #topPanel{
   background:white;
@@ -147,6 +137,27 @@ button.logout {
   min-height:40px;
 }
 
+
+#chartDownloadBtns {
+  display: none;   /* 👈 ADD THIS */
+  gap: 15px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+#chartDownloadBtns button {
+  padding: 8px 14px;
+  border: none;
+  background: #001a3d;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#chartDownloadBtns button:hover {
+  background: #003080;
+}
 
 </style>
 </head>
@@ -181,12 +192,15 @@ button.logout {
     </div>
 
     <div style="display:flex; gap:10px;">
-      <button id="themeToggle"
-        style="background:none; border:none; font-size:20px; cursor:pointer;">
-        🌙
-      </button>
 
-    </div>
+
+
+  
+ 
+
+
+
+</div>
 
   </div>
 
@@ -204,6 +218,15 @@ button.logout {
       <option value="Pulicat">Pulicat</option>
     </select>
   </div>
+
+<div class="control-group">
+  <label>Select Category:</label>
+  <select id="categorySelect" disabled>
+    <option value="">-- Choose --</option>
+    <option value="microplastic">Microplastics</option>
+    <option value="others">Others</option>
+  </select>
+</div>
 
  <div class="control-group">
    <label>Select Medium:</label>
@@ -225,6 +248,15 @@ button.logout {
      </select>
    </div>
 
+<div class="control-group">
+  <label>Map Chart Type (Abundance only):</label>
+  <select id="mapChartType" disabled>
+    <option value="">-- Choose --</option>
+    <option value="bar">Bar Chart</option>
+    <option value="pie">Pie Chart</option>
+  </select>
+</div>
+
 
 <div class="control-group">
      <label>Select Microplastic Type:</label>
@@ -241,6 +273,8 @@ button.logout {
     <option value="lowest">Lowest Values Across All Estuaries</option>
     <option value="state">Ranks Based On State</option>
     <option value="estuary">Ranks Based On Estuaries</option>
+    
+
   </select>
 </div>
 
@@ -260,15 +294,25 @@ button.logout {
   <div class="pie-wrapper">
     <canvas id="pieCanvas"></canvas>
   </div>
+
+  <!-- MOVE HERE -->
+  <div id="chartDownloadBtns">
+    <button onclick="downloadBarChart()">⬇ Download Bar Chart</button>
+    <button onclick="downloadPieChart()">⬇ Download Pie Chart</button>
+    <button onclick="downloadChartsPDF()">⬇ Download PDF</button>
+  </div>
 </div>
 
-
-
 <script>
+
+
+// ===== LOGOUT FUNCTION =====
+
 
 Chart.defaults.font.family = "Arial";
 Chart.defaults.font.size = 13;
 Chart.defaults.color = "#333";
+
 
 const API_BASE = "https://india-estuaries-api.onrender.com";
 
@@ -282,6 +326,7 @@ let currentPoints = [];
 
 let barChart = null;
 let pieChart = null;
+
 
 
 
@@ -300,12 +345,7 @@ function toggleMenu(){
   const menu = document.getElementById("taskMenu");
   menu.style.display = menu.style.display === "none" ? "block" : "none";
 }
-function formatObj(obj) {
-  if (!obj) return "N/A";
-  return Object.entries(obj)
-    .map(([k,v]) => `${formatKey(k)}: ${v}`)
-    .join(", ");
-}
+
 const CHART_COLORS = [
   "#AEC6CF", // pastel blue
   "#FFD1DC", // pastel pink
@@ -322,21 +362,25 @@ document.getElementById("estuarySelect")
 .addEventListener("change", loadEstuary);
 async function loadEstuary(){
   currentEstuary = this.value;
-document.getElementById("mediumSelect").disabled = false;
+document.getElementById("categorySelect").disabled = false;
+document.getElementById("mediumSelect").disabled = true;
 document.getElementById("layerSelect").disabled = true;
 document.getElementById("mediumSelect").value = "";
 document.getElementById("layerSelect").value = "";
 if(barChart) barChart.destroy();
 if(pieChart) pieChart.destroy();
+document.getElementById("chartDownloadBtns").style.display = "none";
   if(!currentEstuary) return;
   markers.clearLayers();
+  pieMarkers.clearLayers();
   currentPoints = [];
   try{
     const [abRes, shRes, colRes, szRes] = await Promise.all([
   fetch(`${API_BASE}/estuaries/${currentEstuary}/abundance`),
+ 
   fetch(`${API_BASE}/estuaries/${currentEstuary}/shape`),
   fetch(`${API_BASE}/estuaries/${currentEstuary}/color`),
-  fetch(`${API_BASE}/estuaries/${currentEstuary}/size`)
+  fetch(`${API_BASE}/estuaries/${currentEstuary}/size`),
 ]);
     const abundance = abRes.ok ? await abRes.json() : { points: [] };
     const shape     = shRes.ok ? await shRes.json() : { points: [] };
@@ -360,6 +404,43 @@ if(pieChart) pieChart.destroy();
         size: sizePt
       };
     });
+
+
+
+
+
+
+
+// CATEGORY → MEDIUM CONTROL
+document.getElementById("categorySelect")
+.addEventListener("change", function(){
+
+  const category = this.value;
+
+  const medium = document.getElementById("mediumSelect");
+  const layer = document.getElementById("layerSelect");
+  const type = document.getElementById("typeSelect");
+  const mapChart = document.getElementById("mapChartType");
+
+  // RESET EVERYTHING
+  medium.value = "";
+  layer.value = "";
+  type.value = "";
+  mapChart.value = "";
+
+  medium.disabled = true;
+  layer.disabled = true;
+  type.disabled = true;
+  mapChart.disabled = true;
+
+  if(category === "microplastic"){
+    medium.disabled = false;   // ✅ enable only for microplastic
+  }
+
+});
+
+
+
     /* ===== MARKERS ===== */
     currentPoints.forEach(pt => {
       const popup = `
@@ -431,41 +512,51 @@ function formatKey(key){
 /* ================= CHARTS ================= */
 document.getElementById("layerSelect")
 .addEventListener("change", function(){
+document.getElementById("chartDownloadBtns").style.display = "none";
+
 
   const layer = this.value;
   const typeSelect = document.getElementById("typeSelect");
+  const mapChartType = document.getElementById("mapChartType");
 
   typeSelect.innerHTML = `<option value="">-- Choose --</option>`;
-  typeSelect.disabled = false;
+  typeSelect.disabled = true;
+
+  mapChartType.value = "";
+  mapChartType.disabled = true;
 
   let keys = [];
+
+  if(layer === "abundance"){
+
+  mapChartType.disabled = false;
+
+  // ✅ CLEAR MAP (IMPORTANT)
+  markers.clearLayers();
+  pieMarkers.clearLayers();
+
+  // Only bottom charts
+  drawCharts();
+
+  document.getElementById("chartContainer").style.display = "block";
+  return;
+}
 
   if(layer === "size") keys = SIZE_KEYS;
   else if(layer === "shape") keys = SHAPE_KEYS;
   else if(layer === "color") keys = COLOR_KEYS;
-  else if(layer === "abundance"){
-    typeSelect.disabled = true;
-    drawCharts();
 
-    // ADD THIS LINE
-    document.getElementById("chartContainer").style.display = "block";
+  typeSelect.disabled = false;
 
-    return;
-  }
+  keys.forEach(k=>{
+    const option = document.createElement("option");
+    option.value = k;
+    option.textContent = formatKey(k);
+    typeSelect.appendChild(option);
+  });
 
- keys.forEach(k=>{
-  const option = document.createElement("option");
-  option.value = k;
-  option.textContent = formatKey(k);
-  typeSelect.appendChild(option);
-});
-
-// ADD THIS LINE
-drawCharts();
-
-  // ADD THIS LINE
+  drawCharts();
   document.getElementById("chartContainer").style.display = "block";
-
 });
 
 document.getElementById("mediumSelect")
@@ -486,6 +577,7 @@ document.getElementById("mediumSelect")
 
   if(barChart) barChart.destroy();
   if(pieChart) pieChart.destroy();
+document.getElementById("chartDownloadBtns").style.display = "none";
 });
 
 function drawCharts(){
@@ -505,9 +597,9 @@ function drawCharts(){
   markers.clearLayers(); 
   pieMarkers.clearLayers();
 
- if(layer === "abundance"){
+if(layer === "abundance"){
   drawAbundance();
-  drawAbundanceMapPie();
+  
 }
 
   else if(layer === "size"){
@@ -524,65 +616,99 @@ function drawCharts(){
     drawStacked("color", COLOR_KEYS);
     drawMapPieCharts("color", COLOR_KEYS);
   }
-
+document.getElementById("chartDownloadBtns").style.display = "flex";
 }
 function drawAbundance(){
-  const medium = document.getElementById("mediumSelect").value;
-  const barCtx = document.getElementById("barCanvas").getContext("2d");
-const pieCtx = document.getElementById("pieCanvas").getContext("2d");
-  const values = currentPoints.map(p => p[`${medium}_abundance`] || 0);
 
-barChart = new Chart(barCtx,{
-  type:"bar",
-  data:{
-    labels: currentPoints.map(p=>p.station_code),
-    datasets:[{
-  data: values,
-  backgroundColor: CHART_COLORS.slice(0, values.length)
-}]  },
-  options:{
-    responsive:true,
-    maintainAspectRatio:false,   //
-    plugins:{
-      title:{
-        display:true,
-        text: medium.toUpperCase() + " Abundance by Station"
-      },
-      legend:{ display:false }
-    },
-    scales:{
-      y:{
-        beginAtZero:true,
-        title:{
-          display:true,
-          text:"Abundance"
-        }
-      }
-    }
-  }
-});
-  pieChart = new Chart(pieCtx,{
-    type:"pie",
+  const medium = document.getElementById("mediumSelect").value;
+
+  const barCtx = document.getElementById("barCanvas").getContext("2d");
+  const pieCtx = document.getElementById("pieCanvas").getContext("2d");
+
+  const values = currentPoints.map(p => p[`${medium}_abundance`] || 0);
+  const labels = currentPoints.map(p => p.station_code);
+
+  // ===== BAR CHART =====
+  barChart = new Chart(barCtx,{
+    type:"bar",
     data:{
-      labels: currentPoints.map(p=>p.station_code),
+      labels: labels,
       datasets:[{
-  data: values,
-  backgroundColor: CHART_COLORS.slice(0, values.length)
-}]
+        label: "Abundance",
+        data: values,
+        backgroundColor: CHART_COLORS.slice(0, values.length)
+      }]
     },
     options:{
       responsive:true,
-      maintainAspectRatio: true,
+      maintainAspectRatio:false,
+      plugins:{
+        title:{
+          display:true,
+          text: medium.toUpperCase() + " Abundance by Station"
+        },
+        legend:{
+          position:"right",
+          labels:{
+            generateLabels(chart){
+              const data = chart.data;
+              return data.labels.map((label, i) => ({
+                text: `${label} (${data.datasets[0].data[i]})`,
+                fillStyle: data.datasets[0].backgroundColor[i],
+                hidden: false,
+                index: i
+              }));
+            }
+          }
+        }
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{
+            display:true,
+            text:"Abundance"
+          }
+        }
+      }
+    }
+  });
+
+  // ===== PIE CHART =====
+  pieChart = new Chart(pieCtx,{
+    type:"pie",
+    data:{
+      labels: labels,
+      datasets:[{
+        data: values,
+        backgroundColor: CHART_COLORS.slice(0, values.length)
+      }]
+    },
+    options:{
+      responsive:true,
       plugins:{
         title:{
           display:true,
           text:"Distribution Across Stations"
+        },
+        legend:{
+          position:"right",
+          labels:{
+            generateLabels(chart){
+              const data = chart.data;
+              return data.labels.map((label, i) => ({
+                text: `${label} (${data.datasets[0].data[i]})`,
+                fillStyle: data.datasets[0].backgroundColor[i],
+                hidden: false,
+                index: i
+              }));
+            }
+          }
         }
       }
     }
   });
 }
-
 
 // ===== Pie Chart on map =====
 
@@ -696,10 +822,10 @@ function drawTypeChart(){
 
   if(!layer || !medium || !type) return;
 
-  // Keep bottom charts visible
-  document.getElementById("chartContainer").style.display="block";
+  // Show bottom chart container
+  document.getElementById("chartContainer").style.display = "block";
 
-  // Remove markers and pie charts
+  // Clear previous markers
   markers.clearLayers();
   pieMarkers.clearLayers();
 
@@ -708,9 +834,46 @@ function drawTypeChart(){
     const value = pt[layer]?.[medium]?.[type] || 0;
 
     const canvas = document.createElement("canvas");
-    canvas.width = 30;
-    canvas.height = 40;
+    canvas.width = 50;
+    canvas.height = 80;
 
+    // ✅ VALUE LABEL PLUGIN
+    const valueLabelPlugin = {
+      id: 'valueLabel',
+      afterDatasetsDraw(chart){
+        const {ctx} = chart;
+        ctx.save();
+
+        chart.data.datasets.forEach((dataset, i) => {
+          const meta = chart.getDatasetMeta(i);
+
+          meta.data.forEach((bar, index) => {
+            if(!bar.x || !bar.y) return;
+
+            const val = dataset.data[index] ?? 0;
+
+            const centerY = bar.y + (bar.base - bar.y) / 2;
+
+const barHeight = bar.base - bar.y;
+
+ctx.fillStyle = "#000";
+ctx.font = "bold 10px Arial";
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
+
+ctx.fillText(
+  (Number(val) || 0).toFixed(2),
+  bar.x,
+  centerY
+);
+          });
+        });
+
+        ctx.restore();
+      }
+    };
+
+    // ✅ CHART
     new Chart(canvas,{
       type:"bar",
       data:{
@@ -734,26 +897,28 @@ function drawTypeChart(){
             grid:{display:false}
           }
         }
-      }
+      },
+      plugins:[valueLabelPlugin] // ✅ correct placement
     });
 
+    // ✅ ADD TO MAP
     const icon = L.divIcon({
       html: canvas,
       className:"",
-      iconSize:[30,40]
+      iconSize:[50,80]
     });
 
-    const marker = L.marker([pt.latitude, pt.longitude],{icon})
+    const marker = L.marker([pt.latitude, pt.longitude], {icon})
       .bindPopup(`
-        <b>${pt.station_code}</b><br>
-        ${formatKey(type)}: ${value}
-      `);
+  <b>${pt.station_code}</b><br>
+  Abundance: ${(Number(value) || 0).toFixed(2)}
+`);
 
     markers.addLayer(marker);
 
-  });
+  }); // ✅ forEach CLOSED
 
-}
+} // ✅ function CLOSED
 
 function drawTypeMap(type, layer, medium){
 
@@ -777,6 +942,7 @@ function drawTypeMap(type, layer, medium){
 }
 document.getElementById("typeSelect")
 .addEventListener("change", drawTypeChart);
+
 
 // ===== MAP LEGEND =====
 let mapLegend = null;
@@ -822,30 +988,58 @@ function addMapLegend(keys){
 }
 
 
+function removeMapLegend(){
+  if(mapLegend){
+    map.removeControl(mapLegend);
+    mapLegend = null;
+  }
+}
+
 function drawStacked(type, keys){
+
   const medium = document.getElementById("mediumSelect").value;
+
   const barCtx = document.getElementById("barCanvas").getContext("2d");
-const pieCtx = document.getElementById("pieCanvas").getContext("2d");
+  const pieCtx = document.getElementById("pieCanvas").getContext("2d");
+
+  // ===== STACKED BAR =====
   barChart = new Chart(barCtx,{
     type:"bar",
     data:{
       labels: currentPoints.map(p=>p.station_code),
       datasets: keys.map((k, index) => ({
-  label: formatKey(k),
-  data: currentPoints.map(p =>
-    (p[type]?.[medium]?.[k] || 0)
-  ),
-  borderWidth: 1,
-  backgroundColor: CHART_COLORS[index % CHART_COLORS.length] // unique color
-}))
+        label: formatKey(k),
+        data: currentPoints.map(p =>
+          (p[type]?.[medium]?.[k] || 0)
+        ),
+        backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+      }))
     },
     options:{
       responsive:true,
-      maintainAspectRatio: false,
+      maintainAspectRatio:false,
       plugins:{
         title:{
           display:true,
           text: `${type.toUpperCase()} (${medium.toUpperCase()})`
+        },
+        legend:{
+          position:"right",
+          labels:{
+            generateLabels(chart){
+              return chart.data.datasets.map((ds, i)=>{
+                
+                const total = ds.data.reduce((a,b)=>a+b,0);
+
+                return {
+                  text: `${ds.label} (${total})`,
+                  fillStyle: ds.backgroundColor,
+                  hidden: !chart.isDatasetVisible(i),
+                  datasetIndex: i
+                };
+              });
+            }
+          }
         }
       },
       scales:{
@@ -853,11 +1047,9 @@ const pieCtx = document.getElementById("pieCanvas").getContext("2d");
         y:{ stacked:true, beginAtZero:true }
       }
     }
-  })
+  });
 
-
-
-  // ===== Pie Chart (Total Distribution) =====
+  // ===== PIE (TOTAL DISTRIBUTION) =====
   const totals = {};
   keys.forEach(k => totals[k] = 0);
 
@@ -866,14 +1058,15 @@ const pieCtx = document.getElementById("pieCanvas").getContext("2d");
       totals[k] += (p[type]?.[medium]?.[k] || 0);
     });
   });
+
   pieChart = new Chart(pieCtx,{
     type:"pie",
     data:{
       labels: keys.map(k => formatKey(k)),
       datasets:[{
-  data: keys.map(k=>totals[k]),
-  backgroundColor: CHART_COLORS.slice(0, keys.length)
-}]
+        data: keys.map(k=>totals[k]),
+        backgroundColor: CHART_COLORS.slice(0, keys.length)
+      }]
     },
     options:{
       responsive:true,
@@ -881,21 +1074,34 @@ const pieCtx = document.getElementById("pieCanvas").getContext("2d");
         title:{
           display:true,
           text:`Total ${type.toUpperCase()} Distribution`
+        },
+        legend:{
+          position:"right",
+          labels:{
+            generateLabels(chart){
+              const data = chart.data;
+              return data.labels.map((label, i) => ({
+                text: `${label} (${data.datasets[0].data[i]})`,
+                fillStyle: data.datasets[0].backgroundColor[i],
+                hidden: false,
+                index: i
+              }));
+            }
+          }
         }
       }
     }
   });
-}
-// ===== GET ALL ESTUARY DATA =====
+}// ===== GET ALL ESTUARY DATA =====
 async function getAllEstuaryData(){
-  const estuaries = ["Palar","Kollidam","Pulicat"];
+    const estuaries = ["Palar","Kollidam","Pulicat"];
   let allPoints = [];
   for(const est of estuaries){
     const [abRes, shRes, colRes, szRes] = await Promise.all([
       fetch(`${API_BASE}/estuaries/${est}/abundance`),
-      fetch(`${API_BASE}/estuaries/${est}/shape`),
-      fetch(`${API_BASE}/estuaries/${est}/color`),
-      fetch(`${API_BASE}/estuaries/${est}/size`)
+fetch(`${API_BASE}/estuaries/${est}/shape`),
+fetch(`${API_BASE}/estuaries/${est}/color`),
+fetch(`${API_BASE}/estuaries/${est}/size`)
     ]);
     const abundance = abRes.ok ? await abRes.json() : { points: [] };
     const shape     = shRes.ok ? await shRes.json() : { points: [] };
@@ -1320,7 +1526,10 @@ async function showStateRanks(state){
   const mediums = ["sediment","water"];
   const layers  = ["abundance","color","shape","size"];
 
-  let html = `<h3>Ranks for ${state}</h3>`;
+  let html = `
+  <h3>Ranks for ${state}</h3>
+  <button onclick="downloadStateRanks('${state}')">⬇ Download State CSV</button>
+`;
 
   for(const med of mediums){
     html += `<h4>${med.charAt(0).toUpperCase() + med.slice(1)}</h4>`;
@@ -1423,7 +1632,10 @@ async function showEstuaryRanks(estuary) {
   const mediums = ["sediment","water"];
   const layers  = ["abundance","color","shape","size"];
   
-  let html = `<h3>Ranks for ${estuary}</h3>`;
+  let html = `
+  <h3>Ranks for ${estuary}</h3>
+  <button onclick="downloadEstuaryRanks('${estuary}')">⬇ Download Estuary CSV</button>
+`;
 
   mediums.forEach(med => {
     html += `<h4>${med.charAt(0).toUpperCase() + med.slice(1)}</h4>`;
@@ -1484,33 +1696,7 @@ async function showEstuaryRanks(estuary) {
   });
 
   panel.innerHTML = html;
-}/* ================= DARK MODE ================= */
-const themeToggle = document.getElementById("themeToggle");
-let darkMode = false;
-themeToggle.addEventListener("click", () => {
-  darkMode = !darkMode;
-  if(darkMode){
-    themeToggle.textContent = "☀️";
-
-    Chart.defaults.color = "#f1f1f1";
-    document.documentElement.style.setProperty('--bg-color', '#2a2a2a');
-    document.documentElement.style.setProperty('--text-color', '#eee');
-    document.documentElement.style.setProperty('--header-bg', '#001a3d'); // dark blue
-    document.documentElement.style.setProperty('--controls-bg', '#333333');
-    document.documentElement.style.setProperty('--popup-bg', '#2a2a2a');
-    document.documentElement.style.setProperty('--dropdown-bg', '#222');
-    Chart.defaults.color = "#f1f1f1";
-  } else {
-    themeToggle.textContent = "🌙";
-    document.documentElement.style.setProperty('--bg-color', '#ffffff');
-    document.documentElement.style.setProperty('--text-color', '#111');
-    document.documentElement.style.setProperty('--header-bg', '#001a3d'); // dark blue
-    document.documentElement.style.setProperty('--controls-bg', '#e8e8e8');
-    document.documentElement.style.setProperty('--popup-bg', '#ffffff');
-    document.documentElement.style.setProperty('--dropdown-bg', '#ffffff');
-    Chart.defaults.color = "#333";
-  }
-});
+}
 
 
 
@@ -1534,7 +1720,258 @@ else if(value === "lowest"){
   else if(value === "estuary"){
   window.location.href = "/static/estuary_ranks.html";
 }
+
+
 });
+
+document.getElementById("mapChartType")
+.addEventListener("change", function(){
+
+  const type = this.value;
+  const medium = document.getElementById("mediumSelect").value;
+
+  if(!type || !medium){
+    alert("Please select Medium first");
+    return;
+  }
+
+  markers.clearLayers();
+  pieMarkers.clearLayers();
+
+  // ✅ remove legend first
+  removeMapLegend();
+
+  if(type === "pie"){
+    drawAbundanceMapPie();   // legend will come
+  }
+
+  else if(type === "bar"){
+    drawAbundanceMapBar();   // no legend
+  }
+
+});
+
+
+function drawAbundanceMapBar(){
+
+  removeMapLegend();
+
+  const medium = document.getElementById("mediumSelect").value;
+
+  currentPoints.forEach(pt => {
+
+    const value = pt[`${medium}_abundance`] || 0;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 50;
+    canvas.height = 80;
+
+    new Chart(canvas,{
+      type:"bar",
+      data:{
+        labels:[""],
+        datasets:[{
+          data:[value],
+          backgroundColor:"#FF8C00"
+        }]
+      },
+      options:{
+        responsive:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{enabled:false}
+        },
+        scales:{
+          x:{display:false},
+          y:{
+            beginAtZero:true,
+            ticks:{display:false},
+            grid:{display:false}
+          }
+        }
+      },
+
+      plugins: [{
+  id: 'valueLabel',
+  afterDatasetsDraw(chart){
+    const {ctx, chartArea:{top, bottom}} = chart;
+    ctx.save();
+
+    chart.data.datasets.forEach((dataset, i) => {
+      const meta = chart.getDatasetMeta(i);
+
+      meta.data.forEach((bar, index) => {
+
+        const value = dataset.data[index] ?? 0;
+
+        let yPos;
+        const barHeight = bar.base - bar.y;
+
+        // small bar → show above
+        if(barHeight < 12){
+          yPos = bar.y - 6;
+        } else {
+          // normal bar → center
+          yPos = bar.y + barHeight / 2;
+        }
+
+        // keep inside canvas
+        yPos = Math.max(top + 10, Math.min(bottom - 10, yPos));
+
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 10px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        ctx.fillText(
+          (Number(value) || 0).toFixed(2),
+          bar.x,
+          yPos
+        );
+
+      });
+    });
+
+    ctx.restore();
+  }
+}]
+    });
+
+    const icon = L.divIcon({
+      html: canvas,
+      className:"",
+      iconSize:[50,80]
+    });
+
+    const marker = L.marker([pt.latitude, pt.longitude],{icon})
+      .bindPopup(`
+        <b>${pt.station_code}</b><br>
+        Abundance: ${(Number(value) || 0).toFixed(2)}
+      `);
+
+    markers.addLayer(marker);
+
+  });
+}
+
+
+
+// ===== DOWNLOAD BAR CHART =====
+function downloadBarChart(){
+
+  if(!barChart){
+    alert("Generate chart first");
+    return;
+  }
+
+  const originalCanvas = document.getElementById("barCanvas");
+
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = originalCanvas.width;
+  tempCanvas.height = originalCanvas.height;
+
+  const ctx = tempCanvas.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+  ctx.drawImage(originalCanvas, 0, 0);
+
+  const link = document.createElement("a");
+  link.download = `${currentEstuary}_bar_chart.png`;
+  link.href = tempCanvas.toDataURL("image/png");
+
+  link.click();
+}
+
+// ===== DOWNLOAD PIE CHART =====
+function downloadPieChart(){
+
+  if(!pieChart){
+    alert("Generate chart first");
+    return;
+  }
+
+  const originalCanvas = document.getElementById("pieCanvas");
+
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = originalCanvas.width;
+  tempCanvas.height = originalCanvas.height;
+
+  const ctx = tempCanvas.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+  ctx.drawImage(originalCanvas, 0, 0);
+
+  const link = document.createElement("a");
+  link.download = `${currentEstuary}_pie_chart.png`;
+  link.href = tempCanvas.toDataURL("image/png");
+
+  link.click();
+}
+
+async function downloadChartsPDF(){
+
+  if(!barChart && !pieChart){
+    alert("Generate charts first");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+
+  const pdf = new jsPDF("p", "mm", "a4");
+
+  let yPosition = 10;
+
+  // ===== TITLE =====
+  pdf.setFontSize(16);
+  pdf.text("Estuary Microplastic Analysis", 10, yPosition);
+
+  yPosition += 10;
+
+  // ===== BAR CHART =====
+  if(barChart){
+    const barCanvas = document.getElementById("barCanvas");
+
+    const barImg = barCanvas.toDataURL("image/png");
+
+    pdf.setFontSize(12);
+    pdf.text("Bar Chart", 10, yPosition);
+
+    yPosition += 5;
+
+    pdf.addImage(barImg, "PNG", 10, yPosition, 180, 80);
+
+    yPosition += 90;
+  }
+
+  // ===== NEW PAGE IF NEEDED =====
+  if(yPosition > 200){
+    pdf.addPage();
+    yPosition = 10;
+  }
+
+  // ===== PIE CHART =====
+  if(pieChart){
+    const pieCanvas = document.getElementById("pieCanvas");
+
+    const pieImg = pieCanvas.toDataURL("image/png");
+
+    pdf.setFontSize(12);
+    pdf.text("Pie Chart", 10, yPosition);
+
+    yPosition += 5;
+
+    pdf.addImage(pieImg, "PNG", 10, yPosition, 150, 150);
+  }
+
+  // ===== SAVE =====
+  pdf.save(`${currentEstuary}_charts.pdf`);
+}
+
+
 
 
 

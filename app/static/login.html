@@ -18,13 +18,21 @@
       background:white;
       padding:40px;
       border-radius:10px;
-      width:350px;
+      width:360px; /* slightly increased to avoid wrapping */
       box-shadow:0 10px 25px rgba(0,0,0,0.1);
       text-align:center;
     }
 
     h2 {
       margin-bottom:25px;
+    }
+
+    label {
+      display:block;
+      text-align:left;
+      margin-bottom:5px;
+      font-size:14px;
+      font-weight:bold;
     }
 
     input {
@@ -81,7 +89,26 @@
       margin-bottom:10px;
       min-height:20px;
     }
+
+    /* ✅ FIXED show password layout */
+    .show-pass {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      font-size:13px;
+      margin-bottom:12px;
+      justify-content:flex-start;
+      white-space: nowrap; /* prevents breaking into 2 lines */
+    }
+
+    .show-pass label {
+      margin:0;
+      font-weight:normal;
+      cursor:pointer;
+    }
+
   </style>
+
 </head>
 
 <body>
@@ -92,25 +119,53 @@
   <div id="success"></div>
 
   <form id="loginForm">
-    <input type="text" id="username" placeholder="Username" required>
-    <input type="password" id="password" placeholder="Password" required>
+
+    <!-- Username -->
+    <label for="username">Username</label>
+    <input type="text" id="username" placeholder="Enter your username" required>
+
+    <!-- Password -->
+    <label for="password">Password</label>
+    <input type="password" id="password" placeholder="Enter your password" required>
+
+    <!-- Show Password (single line now) -->
+    <div class="show-pass">
+      <input type="checkbox" id="showPassword">
+      <label for="showPassword">Show Password</label>
+    </div>
+
     <button type="submit" id="loginBtn">Login</button>
+
   </form>
 
-<a href="/static/register.html">Create Account</a>
-<a href="/static/forgot-password.html">Forgot Password?</a>
-<a href="/static/resend-verification.html">Resend-Verification Email</a>  <p id="error"></p>
+  <div class="links">
+    <a href="/static/register.html">Create Account</a>
+    <a href="/static/forgot-password.html">Forgot Password?</a>
+    <a href="/static/resend-verification.html">Resend Verification Email</a>
+  </div>
+
+  <p id="error"></p>
+
 </div>
 
 <script>
+
 const API_BASE = "https://india-estuaries-api.onrender.com";
 
 // 🔒 If already logged in → go to map
 if(localStorage.getItem("access_token")){
-window.location.href = "/static/map_modified.html";
+  window.location.href = "/static/map_modified.html";
 }
 
+// 👁️ Show / Hide password
+document.getElementById("showPassword").addEventListener("change", function () {
+  const passwordField = document.getElementById("password");
+  passwordField.type = this.checked ? "text" : "password";
+});
+
+// 🔐 Login
 document.getElementById("loginForm").addEventListener("submit", async function(e){
+
     e.preventDefault();
 
     const loginBtn = document.getElementById("loginBtn");
@@ -123,7 +178,6 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
 
-    // ⚠️ IMPORTANT: Use form-urlencoded (required by OAuth2PasswordRequestForm)
     const formData = new URLSearchParams();
     formData.append("username", username);
     formData.append("password", password);
@@ -141,7 +195,7 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
 
         if(response.ok){
             localStorage.setItem("access_token", data.access_token);
-           window.location.href = "/static/map_modified.html";
+            window.location.href = "/static/map_modified.html";
         } else {
             errorBox.innerText = data.detail || "Login failed";
         }
@@ -153,6 +207,7 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
     loginBtn.disabled = false;
     loginBtn.innerText = "Login";
 });
+
 </script>
 
 </body>
