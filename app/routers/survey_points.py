@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db
 from app import models, schemas
+from app.security import require_roles
 
 router = APIRouter(prefix="/survey_points", tags=["Survey Points"])
 
@@ -11,7 +12,8 @@ router = APIRouter(prefix="/survey_points", tags=["Survey Points"])
 @router.post("/")
 def create_survey_point(
     data: schemas.SurveyPointCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_roles(["admin", "editor"]))
 ):
     # Prevent duplicate station
     existing = db.query(models.SurveyPoints).filter(
@@ -44,13 +46,14 @@ def create_survey_point(
         db.rollback()
         raise HTTPException(status_code=500, detail="Database error")
 
-
 @router.delete("/{station_code}")
 def delete_survey_point(
     station_code: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles(["admin"]))  # Admin-only
 ):
     try:
+        # Find the survey point
         survey_point = db.query(models.SurveyPoints).filter(
             models.SurveyPoints.station_code == station_code
         ).first()

@@ -119,3 +119,75 @@ class PlasticSizeSediment(Base):
     lt_1mm = Column(Numeric)
     mm_1_to_2_5 = Column(Numeric)
     mm_2_5_to_5 = Column(Numeric)
+
+
+# =========================
+# User & Auth Models
+# =========================
+
+class RoleEnum(str, enum.Enum):
+    master_admin = "master_admin"
+    admin = "admin"
+    editor = "editor"
+    viewer = "viewer"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False, index=True)
+    password = Column(String, nullable=False)
+    role = Column(SQLEnum(RoleEnum), nullable=False)
+    email = Column(String, unique=True, nullable=True, index=True)
+    is_verified = Column(Boolean, default=False, nullable=False)
+
+    # Relationships
+    password_reset_tokens = relationship(
+        "PasswordResetToken",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+    email_verification_tokens = relationship(
+        "EmailVerificationToken",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    token = Column(String, unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+
+    user = relationship("User", back_populates="password_reset_tokens")
+
+
+class EmailVerificationToken(Base):
+    __tablename__ = "email_verification_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    token = Column(String, unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+
+    user = relationship("User", back_populates="email_verification_tokens")
+
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    jti = Column(String, unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)

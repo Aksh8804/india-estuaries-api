@@ -131,6 +131,24 @@ class EstuaryColorResponse(BaseModel):
 # =========================
 # USER SCHEMAS
 # =========================
+
+from typing import Optional
+from pydantic import BaseModel, Field, EmailStr
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: Optional[EmailStr] = None
+    password: str = Field(min_length=8, max_length=72)
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+
+    class Config:
+        from_attributes = True
         
 class PlasticAbundanceCreate(BaseModel):
     station_code: str
