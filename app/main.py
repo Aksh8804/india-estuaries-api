@@ -27,7 +27,7 @@ from app.routers import size
 from app.routers.survey_points import router as survey_router
 from app.routers.survey_full import router as survey_full_router
 from app.routers.master_admin import router as master_router
-
+from app.routers.water_quality import router as water_quality_router
 
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
@@ -81,6 +81,7 @@ app.include_router(size.router)
 app.include_router(survey_router)
 app.include_router(survey_full_router)
 app.include_router(master_router)
+app.include_router(water_quality_router)
 
 
 # =========================
