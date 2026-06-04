@@ -18,7 +18,6 @@ def get_estuary_water_quality(estuary_name: str, db: Session = Depends(get_db)):
             sp.station_code,
             sp.latitude,
             sp.longitude,
-            sp.state,
 
             wq.sample_timestamp,
             wq.secchi_depth_m,

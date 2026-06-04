@@ -18,7 +18,6 @@ def get_estuary_abundance(estuary_name: str, db: Session = Depends(get_db)):
             sp.station_code,
             sp.latitude,
             sp.longitude,
-            sp.state,   -- 👈 ADD THIS
             pa.water_abundance,
             pa.sediment_abundance
         FROM survey.survey_points sp
