@@ -1,0 +1,178 @@
+async function showHighestMicroplastic(medium){
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+
+  const allPoints = await getAllEstuaryData();
+
+  let highest = {
+    abundance:{ value:0, station:null, estuary:null },
+    color:{ key:null, value:0, station:null, estuary:null },
+    size:{ key:null, value:0, station:null, estuary:null },
+    shape:{ key:null, value:0, station:null, estuary:null }
+  };
+
+  allPoints.forEach(p=>{
+    const ab = p[`${medium}_abundance`] || 0;
+    if(ab > highest.abundance.value){
+      highest.abundance = { value:ab, station:p.station_code, estuary:p.estuary };
+    }
+
+    for(const [k,v] of Object.entries(p.color?.[medium]||{})){
+      if(v > highest.color.value){
+        highest.color = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+
+    for(const [k,v] of Object.entries(p.size?.[medium]||{})){
+      if(v > highest.size.value){
+        highest.size = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+
+    for(const [k,v] of Object.entries(p.shape?.[medium]||{})){
+      if(v > highest.shape.value){
+        highest.shape = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+  });
+
+  panel.innerHTML = `
+    <h3>Highest Microplastics (${medium.toUpperCase()})</h3>
+    <b>Abundance:</b> ${highest.abundance.value} at ${highest.abundance.station} (${highest.abundance.estuary})<br>
+    <b>Color:</b> ${highest.color.key} (${highest.color.value}) at ${highest.color.station} (${highest.color.estuary})<br>
+    <b>Size:</b> ${formatKey(highest.size.key)} (${highest.size.value}) at ${highest.size.station} (${highest.size.estuary})<br>
+    <b>Shape:</b> ${highest.shape.key} (${highest.shape.value}) at ${highest.shape.station} (${highest.shape.estuary})
+  `;
+}
+// Lowest Values Panel
+  
+async function showLowestPanel() {
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+  const allPoints = await getAllEstuaryData();
+  if(allPoints.length === 0){ panel.innerHTML="No data"; return; }
+
+  // Lowest Abundance
+  const lowestAb = {
+    sediment: allPoints.reduce((a,b)=> (b.sediment_abundance||0) < (a.sediment_abundance||0)?b:a),
+    water:    allPoints.reduce((a,b)=> (b.water_abundance||0) < (a.water_abundance||0)?b:a)
+  };
+
+  // Lowest Color, Size, Shape
+  const lowest = { color:{}, size:{}, shape:{} };
+  ["sediment","water"].forEach(med=>{
+    lowest.color[med] = { key:null, value:Infinity, station:null, estuary:null };
+    lowest.size[med]  = { key:null, value:Infinity, station:null, estuary:null };
+    lowest.shape[med] = { key:null, value:Infinity, station:null, estuary:null };
+  });
+
+  allPoints.forEach(p=>{
+    ["sediment","water"].forEach(med=>{
+      for(const [col,val] of Object.entries(p.color?.[med]||{})){
+        if(val < lowest.color[med].value) lowest.color[med] = { key:col, value:val, station:p.station_code, estuary:p.estuary };
+      }
+      for(const [sz,val] of Object.entries(p.size?.[med]||{})){
+        if(val < lowest.size[med].value) lowest.size[med] = { key:sz, value:val, station:p.station_code, estuary:p.estuary };
+      }
+      for(const [sh,val] of Object.entries(p.shape?.[med]||{})){
+        if(val < lowest.shape[med].value) lowest.shape[med] = { key:sh, value:val, station:p.station_code, estuary:p.estuary };
+      }
+    });
+  });
+
+  panel.innerHTML = `
+    <h3>Lowest Values Across All Estuaries</h3>
+    <b>Abundance (Sediment):</b> ${lowestAb.sediment.sediment_abundance} at ${lowestAb.sediment.station_code} (${lowestAb.sediment.estuary})<br>
+    <b>Color (Sediment):</b> ${lowest.color.sediment.key} (${lowest.color.sediment.value}) at ${lowest.color.sediment.station} (${lowest.color.sediment.estuary})<br>
+    <b>Size (Sediment):</b> ${formatKey(lowest.size.sediment.key)} (${lowest.size.sediment.value}) at ${lowest.size.sediment.station} (${lowest.size.sediment.estuary})<br>
+    <b>Shape (Sediment):</b> ${lowest.shape.sediment.key} (${lowest.shape.sediment.value}) at ${lowest.shape.sediment.station} (${lowest.shape.sediment.estuary})<br>
+    <b>Abundance (Water):</b> ${lowestAb.water.water_abundance} at ${lowestAb.water.station_code} (${lowestAb.water.estuary})<br>
+    <b>Color (Water):</b> ${lowest.color.water.key} (${lowest.color.water.value}) at ${lowest.color.water.station} (${lowest.color.water.estuary})<br>
+    <b>Size (Water):</b> ${formatKey(lowest.size.water.key)} (${lowest.size.water.value}) at ${lowest.size.water.station} (${lowest.size.water.estuary})<br>
+    <b>Shape (Water):</b> ${lowest.shape.water.key} (${lowest.shape.water.value}) at ${lowest.shape.water.station} (${lowest.shape.water.estuary})
+  `;
+}
+
+function showLowestOptions(){
+  const sub = document.getElementById("analysisSubOptions");
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "";
+
+  sub.innerHTML = `
+    <label>Select Category:</label>
+    <select id="lowestCategory">
+      <option value="">-- Choose --</option>
+      <option value="microplastic">Microplastics</option>
+      <option value="others">Others</option>
+    </select>
+  `;
+
+  document.getElementById("lowestCategory").addEventListener("change", function(){
+    if(this.value === "microplastic"){
+      sub.innerHTML += `
+        <br><label>Select Medium:</label>
+        <select id="lowestMedium">
+          <option value="">-- Choose --</option>
+          <option value="sediment">Sediment</option>
+          <option value="water">Water</option>
+        </select>
+      `;
+
+      document.getElementById("lowestMedium").addEventListener("change", function(){
+        if(this.value){
+          showLowestMicroplastic(this.value);
+        }
+      });
+    }
+    else if(this.value === "others"){
+      showLowestPanel();
+    }
+  });
+}
+
+async function showLowestMicroplastic(medium){
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+
+  const allPoints = await getAllEstuaryData();
+
+  let lowest = {
+    abundance:{ value:Infinity, station:null, estuary:null },
+    color:{ key:null, value:Infinity, station:null, estuary:null },
+    size:{ key:null, value:Infinity, station:null, estuary:null },
+    shape:{ key:null, value:Infinity, station:null, estuary:null }
+  };
+
+  allPoints.forEach(p=>{
+    const ab = p[`${medium}_abundance`] || 0;
+    if(ab < lowest.abundance.value){
+      lowest.abundance = { value:ab, station:p.station_code, estuary:p.estuary };
+    }
+
+    for(const [k,v] of Object.entries(p.color?.[medium]||{})){
+      if(v < lowest.color.value){
+        lowest.color = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+
+    for(const [k,v] of Object.entries(p.size?.[medium]||{})){
+      if(v < lowest.size.value){
+        lowest.size = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+
+    for(const [k,v] of Object.entries(p.shape?.[medium]||{})){
+      if(v < lowest.shape.value){
+        lowest.shape = { key:k, value:v, station:p.station_code, estuary:p.estuary };
+      }
+    }
+  });
+
+  panel.innerHTML = `
+    <h3>Lowest Microplastics (${medium.toUpperCase()})</h3>
+    <b>Abundance:</b> ${lowest.abundance.value} at ${lowest.abundance.station} (${lowest.abundance.estuary})<br>
+    <b>Color:</b> ${lowest.color.key} (${lowest.color.value}) at ${lowest.color.station} (${lowest.color.estuary})<br>
+    <b>Size:</b> ${formatKey(lowest.size.key)} (${lowest.size.value}) at ${lowest.size.station} (${lowest.size.estuary})<br>
+    <b>Shape:</b> ${lowest.shape.key} (${lowest.shape.value}) at ${lowest.shape.station} (${lowest.shape.estuary})
+  `;
+}
