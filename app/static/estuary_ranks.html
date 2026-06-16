@@ -115,11 +115,46 @@ function enableMedium(){
 
 /* ================= FETCH DATA ================= */
 async function getEstuaryData(est){
+
+    // ================= OTHERS =================
+    if(CURRENT_CATEGORY === "others"){
+
+        const res = await fetch(
+            `${API_BASE}/estuaries/${est}/water-quality`,
+            {
+                headers:{
+                    Authorization:`Bearer ${token}`
+                }
+            }
+        );
+
+        if(!res.ok){
+            return [];
+        }
+
+        const data = await res.json();
+
+        return (data.points || []).map(p => ({
+            ...p,
+            lat: p.latitude,
+            lon: p.longitude
+        }));
+    }
+
+    // ================= MICROPLASTIC =================
     const [abRes,shRes,colRes,szRes]=await Promise.all([
-        fetch(`${API_BASE}/estuaries/${est}/abundance`,{headers:{Authorization:`Bearer ${token}`}}),
-        fetch(`${API_BASE}/estuaries/${est}/shape`,{headers:{Authorization:`Bearer ${token}`}}),
-        fetch(`${API_BASE}/estuaries/${est}/color`,{headers:{Authorization:`Bearer ${token}`}}),
-        fetch(`${API_BASE}/estuaries/${est}/size`,{headers:{Authorization:`Bearer ${token}`}})
+        fetch(`${API_BASE}/estuaries/${est}/abundance`,{
+            headers:{Authorization:`Bearer ${token}`}
+        }),
+        fetch(`${API_BASE}/estuaries/${est}/shape`,{
+            headers:{Authorization:`Bearer ${token}`}
+        }),
+        fetch(`${API_BASE}/estuaries/${est}/color`,{
+            headers:{Authorization:`Bearer ${token}`}
+        }),
+        fetch(`${API_BASE}/estuaries/${est}/size`,{
+            headers:{Authorization:`Bearer ${token}`}
+        })
     ]);
 
     const abundance=abRes.ok?await abRes.json():{points:[]};
@@ -130,29 +165,25 @@ async function getEstuaryData(est){
     let points=[];
 
     abundance.points.forEach(pt=>{
-        const shapePt=shape.points?.find(s=>s.station_code===pt.station_code)||{};
-        const colorPt=color.points?.find(s=>s.station_code===pt.station_code)||{};
-        const sizePt=size.points?.find(s=>s.station_code===pt.station_code)||{};
+
+        const shapePt =
+            shape.points?.find(s=>s.station_code===pt.station_code) || {};
+
+        const colorPt =
+            color.points?.find(s=>s.station_code===pt.station_code) || {};
+
+        const sizePt =
+            size.points?.find(s=>s.station_code===pt.station_code) || {};
 
         points.push({
             ...pt,
-            lat: pt.latitude ?? pt.lat ?? "",
-            lon: pt.longitude ?? pt.lon ?? "",
-            shape:shapePt,
-            color:colorPt,
-            size:sizePt
+            lat: pt.latitude,
+            lon: pt.longitude,
+            shape: shapePt,
+            color: colorPt,
+            size: sizePt
         });
     });
-
-    // filter by category if needed
-    if(CURRENT_CATEGORY==="others"){
-        points = points.map(p=>{
-            // remove microplastic-only fields if category = others
-            const clone = {...p};
-            delete clone.microplastic;
-            return clone;
-        });
-    }
 
     return points;
 }

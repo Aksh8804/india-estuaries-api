@@ -332,3 +332,190 @@ async function showLowestMicroplastic(medium){
     (${lowest.shape.estuary})
   `;
 }
+
+// =========================
+// HIGHEST WATER QUALITY
+// =========================
+
+async function showHighestPanel(){
+
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+
+  const token = localStorage.getItem("access_token");
+  const estuaries = ["Palar","Kollidam","Pulicat"];
+
+  let allPoints = [];
+
+  for(const est of estuaries){
+
+    const res = await fetch(
+      `${API_BASE}/estuaries/${est}/water-quality`,
+      {
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      }
+    );
+
+    if(!res.ok) continue;
+
+    const data = await res.json();
+
+    if(data.points){
+      data.points.forEach(p=>{
+        allPoints.push({
+          ...p,
+          estuary: est
+        });
+      });
+    }
+  }
+
+  if(allPoints.length === 0){
+    panel.innerHTML = "No water quality data found.";
+    return;
+  }
+
+  const highestTemp =
+    allPoints.reduce((a,b)=>
+      (b.temperature_c || 0) >
+      (a.temperature_c || 0) ? b : a
+    );
+
+  const highestPH =
+    allPoints.reduce((a,b)=>
+      (b.ph || 0) >
+      (a.ph || 0) ? b : a
+    );
+
+  const highestSalinity =
+    allPoints.reduce((a,b)=>
+      (b.salinity_psu || 0) >
+      (a.salinity_psu || 0) ? b : a
+    );
+
+  const highestDO =
+    allPoints.reduce((a,b)=>
+      (b.dissolved_oxygen_mg_l || 0) >
+      (a.dissolved_oxygen_mg_l || 0) ? b : a
+    );
+
+  panel.innerHTML = `
+    <h3>Highest Water Quality Values</h3>
+
+    <b>Temperature:</b>
+    ${highestTemp.temperature_c}
+    at ${highestTemp.station_code}
+    (${highestTemp.estuary})<br>
+
+    <b>pH:</b>
+    ${highestPH.ph}
+    at ${highestPH.station_code}
+    (${highestPH.estuary})<br>
+
+    <b>Salinity:</b>
+    ${highestSalinity.salinity_psu}
+    at ${highestSalinity.station_code}
+    (${highestSalinity.estuary})<br>
+
+    <b>Dissolved Oxygen:</b>
+    ${highestDO.dissolved_oxygen_mg_l}
+    at ${highestDO.station_code}
+    (${highestDO.estuary})
+  `;
+}
+
+
+// =========================
+// LOWEST WATER QUALITY
+// =========================
+
+async function showLowestPanel(){
+
+  const panel = document.getElementById("dynamicPanel");
+  panel.innerHTML = "Loading...";
+
+  const token = localStorage.getItem("access_token");
+  const estuaries = ["Palar","Kollidam","Pulicat"];
+
+  let allPoints = [];
+
+  for(const est of estuaries){
+
+    const res = await fetch(
+      `${API_BASE}/estuaries/${est}/water-quality`,
+      {
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      }
+    );
+
+    if(!res.ok) continue;
+
+    const data = await res.json();
+
+    if(data.points){
+      data.points.forEach(p=>{
+        allPoints.push({
+          ...p,
+          estuary: est
+        });
+      });
+    }
+  }
+
+  if(allPoints.length === 0){
+    panel.innerHTML = "No water quality data found.";
+    return;
+  }
+
+  const lowestTemp =
+    allPoints.reduce((a,b)=>
+      (b.temperature_c || 0) <
+      (a.temperature_c || 0) ? b : a
+    );
+
+  const lowestPH =
+    allPoints.reduce((a,b)=>
+      (b.ph || 0) <
+      (a.ph || 0) ? b : a
+    );
+
+  const lowestSalinity =
+    allPoints.reduce((a,b)=>
+      (b.salinity_psu || 0) <
+      (a.salinity_psu || 0) ? b : a
+    );
+
+  const lowestDO =
+    allPoints.reduce((a,b)=>
+      (b.dissolved_oxygen_mg_l || 0) <
+      (a.dissolved_oxygen_mg_l || 0) ? b : a
+    );
+
+  panel.innerHTML = `
+    <h3>Lowest Water Quality Values</h3>
+
+    <b>Temperature:</b>
+    ${lowestTemp.temperature_c}
+    at ${lowestTemp.station_code}
+    (${lowestTemp.estuary})<br>
+
+    <b>pH:</b>
+    ${lowestPH.ph}
+    at ${lowestPH.station_code}
+    (${lowestPH.estuary})<br>
+
+    <b>Salinity:</b>
+    ${lowestSalinity.salinity_psu}
+    at ${lowestSalinity.station_code}
+    (${lowestSalinity.estuary})<br>
+
+    <b>Dissolved Oxygen:</b>
+    ${lowestDO.dissolved_oxygen_mg_l}
+    at ${lowestDO.station_code}
+    (${lowestDO.estuary})
+  `;
+}

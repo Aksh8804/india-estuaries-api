@@ -1,3 +1,4 @@
+console.log("main loaded");
 // =========================
 // GLOBAL CHART SETTINGS
 // =========================
@@ -144,4 +145,84 @@ window.addEventListener("load", () => {
 
   document.getElementById("chartDownloadBtns").style.display = "none";
 
+});
+
+document.getElementById("estuarySelect")
+.addEventListener("change", async function(){
+
+  currentEstuary = this.value;
+
+  document.getElementById("categorySelect").disabled =
+    !currentEstuary;
+
+  document.getElementById("mediumSelect").disabled = true;
+  document.getElementById("layerSelect").disabled = true;
+  document.getElementById("typeSelect").disabled = true;
+
+  document.getElementById("categorySelect").value = "";
+  document.getElementById("mediumSelect").value = "";
+  document.getElementById("layerSelect").value = "";
+  document.getElementById("typeSelect").value = "";
+
+  markers.clearLayers();
+  pieMarkers.clearLayers();
+
+  if(barChart) barChart.destroy();
+  if(pieChart) pieChart.destroy();
+
+  currentPoints = [];
+});
+
+document.getElementById("categorySelect")
+.addEventListener("change", async function(){
+
+  const category = this.value;
+
+  document.getElementById("taskResult").innerHTML = "";
+  document.getElementById("dynamicPanel").innerHTML = "";
+
+  markers.clearLayers();
+  pieMarkers.clearLayers();
+
+  if(category === "microplastic"){
+
+    document.getElementById("mediumSelect").disabled = false;
+    document.getElementById("layerSelect").disabled = true;
+    document.getElementById("typeSelect").disabled = true;
+
+    return;
+  }
+
+  if(category === "others"){
+
+    document.getElementById("mediumSelect").disabled = true;
+    document.getElementById("layerSelect").disabled = true;
+    document.getElementById("typeSelect").disabled = true;
+
+    const token = localStorage.getItem("access_token");
+
+    const res = await fetch(
+      `${API_BASE}/estuaries/${currentEstuary}/water-quality`,
+      {
+        headers:{
+          "Authorization": `Bearer ${token}`
+        }
+      }
+    );
+
+    const data = await res.json();
+
+    console.log(data);
+
+    // we'll render it next
+  }
+});
+
+document.getElementById("categorySelect")
+.addEventListener("change", async function(){
+
+  console.log("CATEGORY CHANGED");
+  console.log(this.value);
+
+  // existing code...
 });
