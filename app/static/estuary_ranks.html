@@ -39,7 +39,7 @@ h4{margin-top:25px;}
 
 <script>
 
-const API_BASE="https://india-estuaries-api.onrender.com";
+const API_BASE="";
 const token=localStorage.getItem("access_token");
 
 let CURRENT_DATA=[];
@@ -107,10 +107,21 @@ function enableCategory(){
 
 /* ================= ENABLE MEDIUM ================= */
 function enableMedium(){
-    const mediumSelect = document.getElementById("mediumSelect");
-    const estSelected = document.getElementById("estuarySelect").value !== "";
-    const catSelected = document.getElementById("categorySelect").value !== "";
-    mediumSelect.disabled = !(estSelected && catSelected);
+
+    const category =
+        document.getElementById("categorySelect").value;
+
+    const mediumSelect =
+        document.getElementById("mediumSelect");
+
+    if(category === "others"){
+        mediumSelect.value = "water";
+        mediumSelect.disabled = true;
+        loadData();
+        return;
+    }
+
+    mediumSelect.disabled = false;
 }
 
 /* ================= FETCH DATA ================= */
@@ -188,6 +199,69 @@ async function getEstuaryData(est){
     return points;
 }
 
+function renderWaterQualityRanks(points){
+
+    const panel =
+        document.getElementById("resultPanel");
+
+    let html =
+        `<h3>${CURRENT_EST} - WATER QUALITY</h3>`;
+
+    function buildParamTable(title, field){
+
+        const rows = [...points]
+            .filter(p =>
+                p[field] !== null &&
+                p[field] !== undefined &&
+                p[field] !== "Not available"
+            )
+            .sort((a,b)=>b[field]-a[field]);
+
+        return buildTable(
+            `${title} Ranking`,
+            ["Rank","Station","Lat","Lon","Value"],
+            rows.map(p=>i=>`
+                <td>${i+1}</td>
+                <td>${p.station_code}</td>
+                <td>${p.lat}</td>
+                <td>${p.lon}</td>
+                <td>${p[field]}</td>
+            `)
+        );
+    }
+
+    html += buildParamTable(
+        "Temperature","temperature_c");
+
+    html += buildParamTable(
+        "pH","ph");
+
+    html += buildParamTable(
+        "Salinity","salinity_psu");
+
+    html += buildParamTable(
+        "Dissolved Oxygen",
+        "dissolved_oxygen_mg_l");
+
+    html += buildParamTable(
+        "Secchi Depth",
+        "secchi_depth_m");
+
+    html += buildParamTable(
+        "ORP",
+        "orp_mv");
+
+    html += buildParamTable(
+        "EC",
+        "ec_us_cm");
+
+    html += buildParamTable(
+        "TDS",
+        "tds_ppt");
+
+    panel.innerHTML = html;
+}
+
 /* ================= LOAD DATA ================= */
 function loadData(){
     const est = document.getElementById("estuarySelect").value;
@@ -219,7 +293,10 @@ async function showEstuaryRanks(est,med,cat){
 
     let points=await getEstuaryData(est);
     CURRENT_DATA = points;
-
+    if(cat === "others"){
+    renderWaterQualityRanks(points);
+    return;
+}
     if(!points.length){
         panel.innerHTML="❌ No data";
         return;
