@@ -72,7 +72,7 @@ h4{margin-top:25px;}
 </div>
 
 <script>
-const API_BASE="https://india-estuaries-api.onrender.com";
+const API_BASE="";
 const token=localStorage.getItem("access_token");
 
 const STATE_FALLBACK={
@@ -88,58 +88,184 @@ let CURRENT_CATEGORY="";
 
 /* ================= FETCH ================= */
 async function getAllEstuaryData(){
-    const estuaryRes=await fetch(`${API_BASE}/estuaries`,{
-        headers:{Authorization:`Bearer ${token}`},
-        cache:"no-store"
-    });
-    const estuaries=estuaryRes.ok?await estuaryRes.json():[];
-    let allPoints=[];
+
+    const estuaryRes = await fetch(
+        `${API_BASE}/estuaries`,
+        {
+            headers:{
+                Authorization:`Bearer ${token}`
+            },
+            cache:"no-store"
+        }
+    );
+
+    const estuaries =
+        estuaryRes.ok
+            ? await estuaryRes.json()
+            : [];
+
+    let allPoints = [];
 
     for(const est of estuaries){
-        let state="Unknown";
+
+        let state = "Unknown";
+
         try{
-            const metaRes=await fetch(`${API_BASE}/estuaries/${est}`,{
-                headers:{Authorization:`Bearer ${token}`}
-            });
-            const meta=metaRes.ok?await metaRes.json():{};
-            state=meta.state || STATE_FALLBACK[est] || "Unknown";
-        }catch(e){
-            state=STATE_FALLBACK[est] || "Unknown";
+            const metaRes = await fetch(
+                `${API_BASE}/estuaries/${est}`,
+                {
+                    headers:{
+                        Authorization:`Bearer ${token}`
+                    }
+                }
+            );
+
+            const meta =
+                metaRes.ok
+                    ? await metaRes.json()
+                    : {};
+
+            state =
+                meta.state ||
+                STATE_FALLBACK[est] ||
+                "Unknown";
+        }
+        catch(e){
+            state =
+                STATE_FALLBACK[est] ||
+                "Unknown";
         }
 
-        const [abRes,shRes,colRes,szRes]=await Promise.all([
-            fetch(`${API_BASE}/estuaries/${est}/abundance`,{headers:{Authorization:`Bearer ${token}`}}),
-            fetch(`${API_BASE}/estuaries/${est}/shape`,{headers:{Authorization:`Bearer ${token}`}}),
-            fetch(`${API_BASE}/estuaries/${est}/color`,{headers:{Authorization:`Bearer ${token}`}}),
-            fetch(`${API_BASE}/estuaries/${est}/size`,{headers:{Authorization:`Bearer ${token}`}})
-        ]);
+        // ================= OTHERS =================
 
-        const abundance=abRes.ok?await abRes.json():{points:[]};
-        const shape=shRes.ok?await shRes.json():{points:[]};
-        const color=colRes.ok?await colRes.json():{points:[]};
-        const size=szRes.ok?await szRes.json():{points:[]};
+        if(CURRENT_CATEGORY === "others"){
+
+            const res = await fetch(
+                `${API_BASE}/estuaries/${est}/water-quality`,
+                {
+                    headers:{
+                        Authorization:`Bearer ${token}`
+                    }
+                }
+            );
+
+            if(res.ok){
+
+                const data = await res.json();
+
+                (data.points || []).forEach(pt=>{
+
+                    allPoints.push({
+                        ...pt,
+                        estuary: est,
+                        state: state,
+                        lat: pt.latitude ?? "",
+                        lon: pt.longitude ?? "",
+                        category: "others"
+                    });
+
+                });
+            }
+
+            continue;
+        }
+
+        // ================= MICROPLASTIC =================
+
+        const [abRes,shRes,colRes,szRes] =
+            await Promise.all([
+
+                fetch(
+                    `${API_BASE}/estuaries/${est}/abundance`,
+                    {
+                        headers:{
+                            Authorization:`Bearer ${token}`
+                        }
+                    }
+                ),
+
+                fetch(
+                    `${API_BASE}/estuaries/${est}/shape`,
+                    {
+                        headers:{
+                            Authorization:`Bearer ${token}`
+                        }
+                    }
+                ),
+
+                fetch(
+                    `${API_BASE}/estuaries/${est}/color`,
+                    {
+                        headers:{
+                            Authorization:`Bearer ${token}`
+                        }
+                    }
+                ),
+
+                fetch(
+                    `${API_BASE}/estuaries/${est}/size`,
+                    {
+                        headers:{
+                            Authorization:`Bearer ${token}`
+                        }
+                    }
+                )
+            ]);
+
+        const abundance =
+            abRes.ok
+                ? await abRes.json()
+                : {points:[]};
+
+        const shape =
+            shRes.ok
+                ? await shRes.json()
+                : {points:[]};
+
+        const color =
+            colRes.ok
+                ? await colRes.json()
+                : {points:[]};
+
+        const size =
+            szRes.ok
+                ? await szRes.json()
+                : {points:[]};
 
         abundance.points.forEach(pt=>{
-            const shapePt=shape.points?.find(s=>s.station_code===pt.station_code)||{};
-            const colorPt=color.points?.find(s=>s.station_code===pt.station_code)||{};
-            const sizePt=size.points?.find(s=>s.station_code===pt.station_code)||{};
+
+            const shapePt =
+                shape.points?.find(
+                    s=>s.station_code===pt.station_code
+                ) || {};
+
+            const colorPt =
+                color.points?.find(
+                    s=>s.station_code===pt.station_code
+                ) || {};
+
+            const sizePt =
+                size.points?.find(
+                    s=>s.station_code===pt.station_code
+                ) || {};
 
             allPoints.push({
                 ...pt,
-                estuary:est,
-                state:state,
-                lat: pt.latitude ?? pt.lat ?? "",
-                lon: pt.longitude ?? pt.lon ?? "",
-                shape:shapePt,
-                color:colorPt,
-                size:sizePt,
-                category: pt.category || "microplastic"  // default category
+                estuary: est,
+                state: state,
+                lat: pt.latitude ?? "",
+                lon: pt.longitude ?? "",
+                shape: shapePt,
+                color: colorPt,
+                size: sizePt,
+                category: "microplastic"
             });
+
         });
     }
+
     return allPoints;
 }
-
 /* ================= SIZE FORMAT ================= */
 function formatSize(size){
     if(!size) return "";
@@ -213,17 +339,61 @@ function updateCategory(){
 }
 
 function updateMedium(){
-    document.getElementById("mediumSelect").disabled = false;
+
+    const category =
+        document.getElementById(
+            "categorySelect"
+        ).value;
+
+    const medium =
+        document.getElementById(
+            "mediumSelect"
+        );
+
+    if(category === "others"){
+
+        medium.disabled = true;
+        medium.value = "water";
+
+        loadData();
+        return;
+    }
+
+    medium.disabled = false;
+    medium.value = "";
 }
 
+
 function loadData(){
-    const state = document.getElementById("stateSelect").value;
-    const category = document.getElementById("categorySelect").value;
-    const medium = document.getElementById("mediumSelect").value;
 
-    if(!state || !category || !medium) return;
+    const state =
+        document.getElementById(
+            "stateSelect"
+        ).value;
 
-    showStateRanks(state, medium, category);
+    const category =
+        document.getElementById(
+            "categorySelect"
+        ).value;
+
+    const medium =
+        document.getElementById(
+            "mediumSelect"
+        ).value;
+
+    if(!state || !category){
+        return;
+    }
+
+    if(category === "microplastic" && !medium){
+        return;
+    }
+
+    showStateRanks(
+        state,
+        medium || "water",
+        category
+    );
 }
 
 /* ================= TABLE ================= */
@@ -252,11 +422,18 @@ async function showStateRanks(state,med,category){
     }
 
     CURRENT_DATA = statePoints;
+    if(category === "others"){
+    renderWaterQualityRanks(statePoints);
+    return;
+}
 
     if(!statePoints.length){
-        panel.innerHTML=`❌ No data available for ${state} - ${category}`;
-        return;
-    }
+    panel.innerHTML = `
+        <h3>${state}</h3>
+        <p>Data for this state will be updated soon.</p>
+    `;
+    return;
+}
 
     let html=`<h3>${state} - ${category.toUpperCase()} - ${med.toUpperCase()}</h3>`;
 
@@ -300,6 +477,123 @@ async function showStateRanks(state,med,category){
         <br>
         <button onclick="downloadCSV()">⬇ Download CSV</button>
         <button onclick="downloadPDF()">⬇ Download PDF</button>
+    `;
+}
+
+function renderWaterQualityRanks(points){
+
+    const panel =
+        document.getElementById(
+            "resultPanel"
+        );
+
+    if(!points.length){
+
+        panel.innerHTML = `
+            <h3>${CURRENT_STATE}</h3>
+            <p>
+                Data for this state will be updated soon.
+            </p>
+        `;
+
+        return;
+    }
+
+    function buildWQTable(title,key){
+
+        const rows = [...points]
+            .filter(
+                p =>
+                    p[key] !== null &&
+                    p[key] !== undefined
+            )
+            .sort(
+                (a,b)=>
+                    (b[key]||0) -
+                    (a[key]||0)
+            );
+
+        return buildTable(
+            title,
+            [
+                "Rank",
+                "Station",
+                "Estuary",
+                "Lat",
+                "Lon",
+                "Value"
+            ],
+            rows.map(
+                p=>i=>`
+                    <td>${i+1}</td>
+                    <td>${p.station_code}</td>
+                    <td>${p.estuary}</td>
+                    <td>${p.lat||"-"}</td>
+                    <td>${p.lon||"-"}</td>
+                    <td>${p[key]}</td>
+                `
+            )
+        );
+    }
+
+    let html = `
+        <h3>
+            ${CURRENT_STATE}
+            - WATER QUALITY
+        </h3>
+    `;
+
+    html += buildWQTable(
+        "Temperature Ranking",
+        "temperature_c"
+    );
+
+    html += buildWQTable(
+        "pH Ranking",
+        "ph"
+    );
+
+    html += buildWQTable(
+        "Salinity Ranking",
+        "salinity_psu"
+    );
+
+    html += buildWQTable(
+        "Dissolved Oxygen Ranking",
+        "dissolved_oxygen_mg_l"
+    );
+
+    html += buildWQTable(
+        "Secchi Depth Ranking",
+        "secchi_depth_m"
+    );
+
+    html += buildWQTable(
+        "ORP Ranking",
+        "orp_mv"
+    );
+
+    html += buildWQTable(
+        "EC Ranking",
+        "ec_us_cm"
+    );
+
+    html += buildWQTable(
+        "TDS Ranking",
+        "tds_ppt"
+    );
+
+    panel.innerHTML =
+    html +
+    `
+    <br>
+    <button disabled>
+        CSV coming soon
+    </button>
+
+    <button disabled>
+        PDF coming soon
+    </button>
     `;
 }
 
