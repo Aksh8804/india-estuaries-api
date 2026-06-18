@@ -23,7 +23,6 @@ def get_estuary_water_quality(
             sp.longitude,
 
             wq.sample_timestamp,
-            wq.secchi_depth_m,
             wq.temperature_c,
             wq.ph,
             wq.orp_mv,
