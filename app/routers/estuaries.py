@@ -14,7 +14,7 @@ router = APIRouter(
 @router.get("/")
 def list_estuaries(
     db: Session = Depends(get_db),
-    current_user = Depends(require_roles(["admin", "editor", "viewer"]))
+    current_user = Depends(require_roles(["admin", "editor", "viewer", "master_admin"]))
 ):
     sql = text("""
         SELECT DISTINCT estuary_name

@@ -107,7 +107,7 @@ def get_estuary_water_quality(
                 "timestamp": r.sample_timestamp
                 if r.sample_timestamp is not None else "Not available",
 
-                "secchi_depth_m": safe(r.secchi_depth_m),
+                
                 "temperature_c": safe(r.temperature_c),
                 "ph": safe(r.ph),
                 "orp_mv": safe(r.orp_mv),
