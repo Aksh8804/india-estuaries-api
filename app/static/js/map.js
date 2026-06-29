@@ -17,6 +17,29 @@ const map = L.map("map", {
   zoom: 7,
   layers: [street]
 });
+
+const hybrid = L.layerGroup([
+  satellite,
+  L.tileLayer(
+    "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+    {
+      attribution: "© Esri"
+    }
+  )
+]);
+
+L.control.layers(
+  {
+    "Street": street,
+    "Satellite": satellite,
+    "Hybrid": hybrid
+  },
+  {},
+  {
+    collapsed: false
+  }
+).addTo(map);
+
 // ===== MAP LEGEND =====
 let mapLegend = null;
 
