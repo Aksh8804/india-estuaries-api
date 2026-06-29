@@ -1,8 +1,22 @@
-const map = L.map("map").setView([12.8, 80.2], 7);
+const street = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    attribution: "© OpenStreetMap"
+  }
+);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap"
-}).addTo(map);
+const satellite = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  {
+    attribution: "Tiles © Esri"
+  }
+);
+
+const map = L.map("map", {
+  center: [12.8, 80.2],
+  zoom: 7,
+  layers: [street]
+});
 // ===== MAP LEGEND =====
 let mapLegend = null;
 
