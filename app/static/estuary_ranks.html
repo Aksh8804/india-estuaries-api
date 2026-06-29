@@ -98,6 +98,7 @@ async function showEstuaryMenu(){
 
 /* ================= ENABLE CATEGORY ================= */
 function enableCategory(){
+    console.log("enableCategory");
     const categorySelect = document.getElementById("categorySelect");
     categorySelect.disabled = document.getElementById("estuarySelect").value === "";
     
@@ -107,7 +108,7 @@ function enableCategory(){
 
 /* ================= ENABLE MEDIUM ================= */
 function enableMedium(){
-
+    console.log("enableMedium");
     const category =
         document.getElementById("categorySelect").value;
 
