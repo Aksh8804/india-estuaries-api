@@ -181,8 +181,8 @@ document.getElementById("categorySelect")
   document.getElementById("taskResult").innerHTML = "";
   document.getElementById("dynamicPanel").innerHTML = "";
 
-  markers.clearLayers();
-  pieMarkers.clearLayers();
+  //markers.clearLayers();
+  //pieMarkers.clearLayers();
 
   if(category === "microplastic"){
 
