@@ -1,3 +1,30 @@
+async function loadEstuaryList() {
+  try {
+    const res = await fetch(`${API_BASE}/estuaries`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!res.ok) return;
+
+    const estuaries = await res.json();
+
+    const select = document.getElementById("estuarySelect");
+
+    select.innerHTML = `<option value="">-- Choose --</option>`;
+
+    estuaries.forEach(est => {
+      const option = document.createElement("option");
+      option.value = est;
+      option.textContent = est;
+      select.appendChild(option);
+    });
+
+  } catch (err) {
+    console.error("Failed to load estuaries", err);
+  }
+}
 
 /* ================= LOAD ESTUARY ================= */
 document.getElementById("estuarySelect")
@@ -130,3 +157,5 @@ if(markers.getLayers().length > 0){
 }
 
 window.loadEstuary = loadEstuary;
+
+loadEstuaryList();
