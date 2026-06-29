@@ -217,12 +217,3 @@ document.getElementById("categorySelect")
     // we'll render it next
   }
 });
-
-document.getElementById("categorySelect")
-.addEventListener("change", async function(){
-
-  console.log("CATEGORY CHANGED");
-  console.log(this.value);
-
-  // existing code...
-});

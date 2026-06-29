@@ -83,40 +83,6 @@ document.getElementById("chartDownloadBtns").style.display = "none";
 
 
 
-
-
-
-
-// CATEGORY → MEDIUM CONTROL
-document.getElementById("categorySelect")
-.addEventListener("change", function(){
-
-  const category = this.value;
-
-  const medium = document.getElementById("mediumSelect");
-  const layer = document.getElementById("layerSelect");
-  const type = document.getElementById("typeSelect");
-  const mapChart = document.getElementById("mapChartType");
-
-  // RESET EVERYTHING
-  medium.value = "";
-  layer.value = "";
-  type.value = "";
-  mapChart.value = "";
-
-  medium.disabled = true;
-  layer.disabled = true;
-  type.disabled = true;
-  mapChart.disabled = true;
-
-  if(category === "microplastic"){
-    medium.disabled = false;   // ✅ enable only for microplastic
-  }
-
-});
-
-
-
     /* ===== MARKERS ===== */
     currentPoints.forEach(pt => {
       const popup = `
