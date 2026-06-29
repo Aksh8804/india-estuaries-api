@@ -120,9 +120,8 @@ async function getAllEstuaryData(){
                     : {};
 
             state =
-                meta.state ||
-                STATE_FALLBACK[est] ||
-                "Unknown";
+    		meta.state_name ||
+    		"Unknown";
         }
         catch(e){
             state =
