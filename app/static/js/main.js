@@ -210,10 +210,35 @@ document.getElementById("categorySelect")
       }
     );
 
-    const data = await res.json();
+	const data = await res.json();
 
-    console.log(data);
+	markers.clearLayers();
 
-    // we'll render it next
+	data.points.forEach(pt => {
+
+    	const popup = `
+        	<b>${pt.station_code}</b><br><br>
+
+        	Temperature: ${pt.temperature_c}<br>
+        	pH: ${pt.ph}<br>
+        	Salinity: ${pt.salinity_psu}<br>
+        	Dissolved Oxygen: ${pt.dissolved_oxygen_mg_l}<br>
+        	Secchi Depth: ${pt.secchi_depth_m}<br>
+        	ORP: ${pt.orp_mv}<br>
+        	EC: ${pt.ec_us_cm}<br>
+        	TDS: ${pt.tds_ppt}
+    	`;
+
+    	L.marker([pt.latitude, pt.longitude])
+        	.bindPopup(popup)
+        	.addTo(markers);
+	});
+
+	if(markers.getLayers().length){
+    	map.fitBounds(
+        	L.featureGroup(markers.getLayers()).getBounds(),
+        	{padding:[40,40]}
+    	);
+	}
   }
 });
