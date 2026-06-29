@@ -32,10 +32,12 @@ def get_estuary_water_quality(
             wq.dissolved_oxygen_mg_l
 
         FROM survey.survey_points sp
-        LEFT JOIN survey.water_quality wq
-            ON sp.station_code = wq.station_code
+	JOIN survey.estuary_lookup el
+    	    ON sp.estuary_id = el.estuary_id
+	LEFT JOIN survey.water_quality wq
+   	    ON sp.station_code = wq.station_code
 
-        WHERE sp.estuary_name = :estuary_name
+	WHERE el.estuary_name = :estuary_name
     """)
 
     rows = db.execute(

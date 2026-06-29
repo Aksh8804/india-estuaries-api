@@ -24,6 +24,38 @@ def list_estuaries(
 
     rows = db.execute(sql).fetchall()
     return [r[0] for r in rows]
+    
+@router.get("/{estuary_name}")
+def get_estuary_metadata(
+    estuary_name: str,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_roles(["admin", "editor", "viewer", "master_admin"]))
+):
+    sql = text("""
+        SELECT
+            estuary_id,
+            estuary_name,
+            state_name
+        FROM survey.estuary_lookup
+        WHERE estuary_name = :estuary_name;
+    """)
+
+    row = db.execute(
+        sql,
+        {"estuary_name": estuary_name}
+    ).fetchone()
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail="Estuary not found"
+        )
+
+    return {
+        "estuary_id": row.estuary_id,
+        "estuary_name": row.estuary_name,
+        "state_name": row.state_name
+    }
 
 @router.post("/")
 def create_estuary(
