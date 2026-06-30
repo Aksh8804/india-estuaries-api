@@ -114,13 +114,11 @@ async function getAllEstuaryData(){
                     }
                 }
             );
-            console.log(est, metaRes.status);
             const meta =
             console.log(meta);
                 metaRes.ok
                     ? await metaRes.json()
                     : {};
-            console.log(meta);
             state =
     		meta.state_name ||
     		"Unknown";
