@@ -411,6 +411,7 @@ async function showStateRanks(state,med,category){
     panel.innerHTML="Loading...";
 
     const allPoints = await getAllEstuaryData();
+    alert("Loaded " + allPoints.length + " points");
     console.log("CURRENT_CATEGORY =", CURRENT_CATEGORY);
     console.log("Total points =", allPoints.length);
     console.log(allPoints.slice(0,5));
