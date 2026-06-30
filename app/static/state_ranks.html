@@ -82,6 +82,7 @@ let CURRENT_CATEGORY="";
 
 /* ================= FETCH ================= */
 async function getAllEstuaryData(){
+    console.log("getAllEstuaryData started");
 
     const estuaryRes = await fetch(
         `${API_BASE}/estuaries`,
