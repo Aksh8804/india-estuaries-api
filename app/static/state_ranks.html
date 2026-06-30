@@ -106,7 +106,7 @@ async function getAllEstuaryData(){
         let state = "Unknown";
 
         try {
-
+            console.log("Fetching metadata for:", est);
             const metaRes = await fetch(
                 `${API_BASE}/estuaries/${est}`,
                 {
@@ -116,7 +116,7 @@ async function getAllEstuaryData(){
                 }
             );
 
-            console.log(est, metaRes.status);
+            console.log("Finished:", est);
 
             const meta = metaRes.ok
                 ? await metaRes.json()
