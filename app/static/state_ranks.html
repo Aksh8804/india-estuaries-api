@@ -113,9 +113,8 @@ async function getAllEstuaryData(){
                 }
             );
 
-           const text = await metaRes.text();
-           alert(text);
-           return;
+           
+            alert(metaRes.status);
 
             state = meta.state_name || STATE_FALLBACK[est] || "Unknown";
 
