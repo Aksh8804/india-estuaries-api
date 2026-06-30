@@ -409,6 +409,9 @@ async function showStateRanks(state,med,category){
     panel.innerHTML="Loading...";
 
     const allPoints = await getAllEstuaryData();
+    console.log("CURRENT_CATEGORY =", CURRENT_CATEGORY);
+    console.log("Total points =", allPoints.length);
+    console.log(allPoints.slice(0,5));
     let statePoints = allPoints.filter(p => (p.state||"").toLowerCase().trim() === state.toLowerCase().trim());
 
     if(category && category!=="all"){
