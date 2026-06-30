@@ -412,7 +412,11 @@ async function showStateRanks(state,med,category){
     CURRENT_CATEGORY = category;
     const panel = document.getElementById("resultPanel");
     panel.innerHTML="Loading...";
+    const allPoints = await getAllEstuaryData();
 
+    let statePoints = allPoints.filter(
+        p => (p.state || "").toLowerCase().trim() === state.toLowerCase().trim()
+    );
     let statePoints = allPoints.filter(p => (p.state||"").toLowerCase().trim() === state.toLowerCase().trim());
 
     if(category && category!=="all"){
