@@ -97,7 +97,7 @@ async function getAllEstuaryData(){
         estuaryRes.ok
             ? await estuaryRes.json()
             : [];
-
+    alert(JSON.stringify(estuaries[0]));
     let allPoints = [];
 
     for(const est of estuaries){
