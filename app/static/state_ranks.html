@@ -97,7 +97,6 @@ async function getAllEstuaryData(){
         estuaryRes.ok
             ? await estuaryRes.json()
             : [];
-    alert(JSON.stringify(estuaries[0]));
     let allPoints = [];
 
     for(const est of estuaries){
@@ -105,7 +104,6 @@ async function getAllEstuaryData(){
         let state = "Unknown";
 
         try {
-            console.log("Fetching metadata for:", est);
             const metaRes = await fetch(
                 `${API_BASE}/estuaries/${est}`,
                 {
@@ -115,16 +113,10 @@ async function getAllEstuaryData(){
                 }
             );
 
-            console.log("Finished:", est);
+            const text = await metaRes.text();
+            console.log(text);
 
-            const meta = metaRes.ok
-                ? await metaRes.json()
-                : {};
-
-            console.log(meta);
-            alert(JSON.stringify(meta));
-
-            state = meta.state_name || "Unknown";
+            state = meta.state_name || STATE_FALLBACK[est] || "Unknown";
 
         }
         catch (e) {
@@ -412,7 +404,6 @@ async function showStateRanks(state,med,category){
     const panel = document.getElementById("resultPanel");
     panel.innerHTML="Loading...";
     const allPoints = await getAllEstuaryData();
-    alert(allPoints[0].state);
     let statePoints = allPoints.filter(
         p => (p.state || "").toLowerCase().trim() === state.toLowerCase().trim()
     );
