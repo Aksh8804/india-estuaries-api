@@ -232,28 +232,28 @@ function renderWaterQualityRanks(points){
     }
 
     html += buildParamTable(
-        "Temperature","temperature_c");
+        "Temperature(°C)","temperature_c");
 
     html += buildParamTable(
         "pH","ph");
 
     html += buildParamTable(
-        "Salinity","salinity_psu");
+        "Salinity(psu)","salinity_psu");
 
     html += buildParamTable(
-        "Dissolved Oxygen",
+        "Dissolved Oxygen(mg/L)",
         "dissolved_oxygen_mg_l");
 
     html += buildParamTable(
-        "ORP",
+        "ORP(mV)",
         "orp_mv");
 
     html += buildParamTable(
-        "EC",
+        "EC(µS/cm)",
         "ec_us_cm");
 
     html += buildParamTable(
-        "TDS",
+        "TDS(ppt)",
         "tds_ppt");
 
     panel.innerHTML = html;
