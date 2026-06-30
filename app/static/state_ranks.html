@@ -105,28 +105,34 @@ async function getAllEstuaryData(){
 
         let state = "Unknown";
 
-        try{
+        try {
+
             const metaRes = await fetch(
                 `${API_BASE}/estuaries/${est}`,
                 {
-                    headers:{
-                        Authorization:`Bearer ${token}`
+                    headers: {
+                        Authorization: `Bearer ${token}`
                     }
                 }
             );
-            const meta =
+
+            console.log(est, metaRes.status);
+
+            const meta = metaRes.ok
+                ? await metaRes.json()
+                : {};
+
             console.log(meta);
-                metaRes.ok
-                    ? await metaRes.json()
-                    : {};
-            state =
-    		meta.state_name ||
-    		"Unknown";
+
+            state = meta.state_name || "Unknown";
+
         }
-        catch(e){
-            state =
-                STATE_FALLBACK[est] ||
-                "Unknown";
+        catch (e) {
+
+            console.log(e);
+
+            state = "Unknown";
+
         }
 
         // ================= OTHERS =================
