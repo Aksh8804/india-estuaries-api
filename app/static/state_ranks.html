@@ -74,7 +74,6 @@ h4{margin-top:25px;}
 <script>
 const API_BASE="";
 const token=localStorage.getItem("access_token");
-alert(token);
 let CURRENT_DATA=[];
 let CURRENT_STATE="";
 let CURRENT_MED="";
@@ -114,7 +113,6 @@ async function getAllEstuaryData(){
             );
 
            
-            alert(metaRes.status);
 
             state = meta.state_name || STATE_FALLBACK[est] || "Unknown";
 
