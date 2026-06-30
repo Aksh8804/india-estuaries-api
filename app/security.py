@@ -84,6 +84,7 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
+    print("TOKEN:", token)
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -91,6 +92,7 @@ def get_current_user(
     )
 
     payload = decode_access_token(token)
+    print("PAYLOAD:", payload)
     if payload is None:
         raise credentials_exception
 
@@ -114,6 +116,7 @@ def get_current_user(
     user = db.query(models.User).filter(
         models.User.username == username
     ).first()
+    print("USER:", user)
 
     if user is None:
         raise credentials_exception
