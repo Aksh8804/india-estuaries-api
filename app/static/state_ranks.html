@@ -112,11 +112,16 @@ async function getAllEstuaryData(){
                 }
             );
 
-           
+            let meta = {};
+
+            if (metaRes.ok) {
+               meta = await metaRes.json();
+            }
 
             state = meta.state_name || STATE_FALLBACK[est] || "Unknown";
-
+            console.log(est, state);
         }
+
         catch (e) {
 
             console.log(e);
