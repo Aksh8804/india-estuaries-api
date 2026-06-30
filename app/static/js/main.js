@@ -223,7 +223,6 @@ document.getElementById("categorySelect")
         	pH: ${pt.ph}<br>
         	Salinity: ${pt.salinity_psu}<br>
         	Dissolved Oxygen: ${pt.dissolved_oxygen_mg_l}<br>
-        	Secchi Depth: ${pt.secchi_depth_m}<br>
         	ORP: ${pt.orp_mv}<br>
         	EC: ${pt.ec_us_cm}<br>
         	TDS: ${pt.tds_ppt}
