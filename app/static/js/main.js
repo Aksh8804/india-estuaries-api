@@ -219,13 +219,13 @@ document.getElementById("categorySelect")
     	const popup = `
         	<b>${pt.station_code}</b><br><br>
 
-        	Temperature: ${pt.temperature_c}<br>
+        	Temperature(°C): ${pt.temperature_c}<br>
         	pH: ${pt.ph}<br>
-        	Salinity: ${pt.salinity_psu}<br>
-        	Dissolved Oxygen: ${pt.dissolved_oxygen_mg_l}<br>
-        	ORP: ${pt.orp_mv}<br>
-        	EC: ${pt.ec_us_cm}<br>
-        	TDS: ${pt.tds_ppt}
+        	Salinity(psu): ${pt.salinity_psu}<br>
+        	Dissolved Oxygen(mg/L): ${pt.dissolved_oxygen_mg_l}<br>
+        	ORP(mV): ${pt.orp_mv}<br>
+        	EC(µS/cm): ${pt.ec_us_cm}<br>
+        	TDS(ppt): ${pt.tds_ppt}
     	`;
 
     	L.marker([pt.latitude, pt.longitude])
